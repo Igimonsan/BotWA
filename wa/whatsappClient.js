@@ -345,8 +345,8 @@ class WhatsAppClient {
             `🎨 *Tools:*\n` +
             `• !sticker - Buat sticker (kirim gambar)\n` +
             `• !quote [1|2|3] - Generate quote\n` +
-            `• !ai [pertanyaan] - Chat dengan AI\n\n` +
-            `• !hitamkan - Penghitaman (kirim gambar)\n`+
+            `• !ai [pertanyaan] - Chat dengan AI\n` +
+            `• !hitamkan - Penghitaman (kirim gambar)\n\n`+
             `ℹ️ *Info:*\n` +
             `• !help - Tampilkan pesan ini\n` +
             `• !info - Info bot\n\n` +
