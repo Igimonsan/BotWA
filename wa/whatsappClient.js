@@ -374,9 +374,9 @@ class WhatsAppClient {
     async sendQuoteMenu(sender) {
         const quoteMenu = `✨ *QUOTE GENERATOR*\n\n` +
             `Pilih kategori quote:\n` +
-            `• !quote 1 - Quote Motivasi\n` +
-            `• !quote 2 - Quote Inspirasi\n` +
-            `• !quote 3 - Quote Kehidupan\n\n` +
+            `• !quote - Quote Motivasi\n` +
+            `• !pantun - Pantun random\n` +
+            `• !moivasi - Motivasi kehidupan\n\n` +
             `Contoh: !quote 1`;
 
         await this.sendMessage(sender, quoteMenu);
@@ -429,11 +429,11 @@ class WhatsAppClient {
     }
 
     async handleQuoteCommand(sender, choice) {
-        if (!['1', '2', '3'].includes(choice)) {
+        if (!['quote', 'pantun', 'motivasi'].includes(choice)) {
             await this.sendMessage(sender,
                 "❌ Pilihan tidak valid!\n\n" +
-                "Pilih angka 1, 2, atau 3\n" +
-                "Contoh: `!quote 1`"
+                "Pilih kategori: `quote`, `pantun`, atau `motivasi`\n" +
+                "Contoh: `!quote`"
             );
             return;
         }
