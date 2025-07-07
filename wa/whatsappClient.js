@@ -270,13 +270,13 @@ class WhatsAppClient {
                 return;
             }
             //!brat
-            if (lowerText.startsWith('!bratsticker')) {
+            if (lowerText.startsWith('!brats')) {
                 const url = text.substring(12).trim();
                 await this.handleBratsticker(sender, url);
                 return;
             }
             // Command: !facebook [link]
-            if (lowerText.startsWith('!facebook ')) {
+            if (lowerText.startsWith('!fb')) {
                 const url = text.substring(10).trim();
                 await this.handleFacebookCommand(sender, url);
                 return;
@@ -344,11 +344,12 @@ class WhatsAppClient {
         const helpMessage = `🤖 *DAFTAR COMMAND BOT*\n\n` +
             `📱 *Media Downloader:*\n` +
             `• !tiktok [link] - Download video TikTok\n` +
-            `• !facebook [link] - Download video Facebook\n` +
+            `• !fb [link] - Download video Facebook\n` +
             `• !ytmp4 [link] - Download video YouTube\n` +
             `• !ytmp3 [link] - Download audio YouTube\n\n` +
             `🎨 *Tools:*\n` +
             `• !sticker - Buat sticker (kirim gambar)\n` +
+            `• !brats - Buat sticker dari teks\n` +
             `• !quote [1|2|3] - Generate quote\n` +
             `• !ai [pertanyaan] - Chat dengan AI\n` +
             `• !hitamkan - Penghitaman (kirim gambar)\n\n` +
