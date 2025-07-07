@@ -271,7 +271,7 @@ class WhatsAppClient {
             }
             //!brat
             if (lowerText.startsWith('!brats')) {
-                const url = text.substring(12).trim();
+                const url = text.trim();
                 await this.handleBratsticker(sender, url);
                 return;
             }
