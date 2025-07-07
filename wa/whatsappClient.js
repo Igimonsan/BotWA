@@ -277,7 +277,7 @@ class WhatsAppClient {
             }
             // Command: !facebook [link]
             if (lowerText.startsWith('!fb')) {
-                const url = text.substring(10).trim();
+                const url = text.substring(4).trim();
                 await this.handleFacebookCommand(sender, url);
                 return;
             }
