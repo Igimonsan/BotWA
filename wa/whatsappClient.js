@@ -257,6 +257,23 @@ class WhatsAppClient {
                 return;
             }
 
+           if (lowerText === '!quote') {
+            await this.handleQuoteCommand(sender, 'quote');
+            return;
+            }
+
+            // Command: !pantun
+            if (lowerText === '!pantun') {
+            await this.handleQuoteCommand(sender, 'pantun');
+            return;
+            }
+
+            // Command: !motivasi
+            if (lowerText === '!motivasi') {
+              await this.handleQuoteCommand(sender, 'motivasi');
+             return;
+            }
+
             //!brat
             if (lowerText.startsWith('!brats')) {
                 const url = text.substring(7).trim();
@@ -264,24 +281,6 @@ class WhatsAppClient {
                 return;
             }
 
-            if (lowerText === '!quote') {
-            await this.handleQuoteCommand(sender);
-            return;
-            }
-
-            // Command: !pantun
-            if (lowerText === '!pantun') {
-    await this.handlePantunCommand(sender);
-    return;
-            }
-
-            // Command: !motivasi
-            if (lowerText === '!motivasi') {
-             await this.handleMotivasiCommand(sender);
-             return;
-            }
-
-            // Command : Ig downloader
             if (lowerText.startsWith('!ig ')) {
             const url = text.substring(4).trim();
             await this.handleInstagramCommand(sender, url);
@@ -364,9 +363,7 @@ class WhatsAppClient {
             `🎨 *Tools:*\n` +
             `• !sticker - Buat sticker (kirim gambar)\n` +
             `• !brats - Buat sticker dari teks\n` +
-            `• !quote - Generate quote\n` +
-            `• !pantun - Generate pantun\n` +
-            `• !motivasi - Generate motivasi\n` +
+            `• !quote [1|2|3] - Generate quote\n` +
             `• !ai [pertanyaan] - Chat dengan AI\n` +
             `• !hitamkan - Penghitaman (kirim gambar)\n\n` +
             `ℹ️ *Info:*\n` +
@@ -378,7 +375,6 @@ class WhatsAppClient {
 
         await this.sendMessage(sender, helpMessage);
     }
-
     async handleTikTokCommand(sender, url) {
         if (!url) {
             await this.sendMessage(sender,
@@ -466,72 +462,6 @@ class WhatsAppClient {
             await this.sendMessage(sender, '❌ Terjadi kesalahan saat membuat sticker');
         }
     }
-
-    async handleQuoteCommand(sender) {
-    try {
-        await this.sendMessage(sender, '⏳ Sedang mengambil quote...');
-
-        const result = this.quoteGenerator.handleQuoteRequest('1'); // Default ke kategori 1
-        
-        if (result.success) {
-            await this.sendMessage(sender, result.formatted);
-        } else {
-            await this.sendMessage(sender, result.error || '❌ Gagal mengambil quote');
-        }
-
-    } catch (error) {
-        console.error('Error processing quote generation:', error);
-        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mengambil quote');
-    }
-}
-
-async handlePantunCommand(sender) {
-    try {
-        await this.sendMessage(sender, '⏳ Sedang mengambil pantun...');
-
-        const { data } = await axios.get(`${config.ferdev.apiUrl}/maker/pantun`, {
-            params: {
-                apikey: config.ferdev.apiKey,
-            },
-            timeout: 15000
-        });
-
-        if (data && data.success && data.data) {
-            const pantunText = `🎭 *PANTUN*\n\n${data.data}\n\n✨ Pantun berhasil dibuat!`;
-            await this.sendMessage(sender, pantunText);
-        } else {
-            await this.sendMessage(sender, '❌ Gagal mengambil pantun');
-        }
-
-    } catch (error) {
-        console.error('Error processing pantun generation:', error);
-        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mengambil pantun');
-    }
-}
-
-async handleMotivasiCommand(sender) {
-    try {
-        await this.sendMessage(sender, '⏳ Sedang mengambil motivasi...');
-
-        const { data } = await axios.get(`${config.ferdev.apiUrl}/maker/motivasi`, {
-            params: {
-                apikey: config.ferdev.apiKey,
-            },
-            timeout: 15000
-        });
-
-        if (data && data.success && data.data) {
-            const motivasiText = `💪 *MOTIVASI*\n\n${data.data}\n\n✨ Motivasi berhasil dibuat!`;
-            await this.sendMessage(sender, motivasiText);
-        } else {
-            await this.sendMessage(sender, '❌ Gagal mengambil motivasi');
-        }
-
-    } catch (error) {
-        console.error('Error processing motivasi generation:', error);
-        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mengambil motivasi');
-    }
-}
 
     async getbuffer(url, options) {
         try {
@@ -755,7 +685,44 @@ async handleMotivasiCommand(sender) {
     }
 
 
+    async handleQuoteCommand(sender, type) {
+    try {
+        await this.sendMessage(sender, '⏳ Sedang mengambil konten...');
+
+        const result = this.quoteGenerator.getRandomContent(type);
+
+        if (result.success) {
+            await this.sendMessage(sender, result.formatted);
+        } else {
+            await this.sendMessage(sender, result.error || '❌ Gagal mengambil konten');
+        }
+
+    } catch (error) {
+        console.error(`Error processing ${type} command:`, error);
+        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mengambil konten');
+    }
+}
+
+
     // =================== PROCESSING METHODS ===================
+
+    async processQuoteGeneration(sender, type) {
+    try {
+        await this.sendMessage(sender, '⏳ Sedang mengambil konten...');
+
+        const result = this.quoteGenerator.getRandomContent(type);
+
+        if (result.success) {
+            await this.sendMessage(sender, result.formatted);
+        } else {
+            await this.sendMessage(sender, result.error || '❌ Gagal mengambil konten');
+        }
+
+    } catch (error) {
+        console.error('Error processing quote generation:', error);
+        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mengambil konten');
+    }
+}
 
     async processTikTokDownload(sender, url) {
         try {
