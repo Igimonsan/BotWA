@@ -451,8 +451,7 @@ class WhatsAppClient {
                         console.error('Error deleting sticker file:', err);
                     }
                 }, 60000);
-
-                await this.sendMessage(sender, '✅ Sticker berhasil dibuat!');
+                
                 console.log(`✅ Sticker created successfully for ${sender}`);
 
             } else {
