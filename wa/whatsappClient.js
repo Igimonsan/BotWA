@@ -724,7 +724,7 @@ class WhatsAppClient {
                 return;
             }
 
-            const videoUrl = data.data.sd;
+            const videoUrl = data.data.hd;
             await this.sock.sendMessage(sender, {
                 video: { url: videoUrl },
                 caption: data?.data.title || 'Video Facebook',
