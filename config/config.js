@@ -61,7 +61,6 @@ AI: {
 !ytmp4 YouTube ke MP4 download
 \n\n*Developer: Igimonsan*\n*Status:* 🟢 Online`
     },
-
     // Regex untuk validasi ytube link
     ytmp4Regex: /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
     // Add this to your config file

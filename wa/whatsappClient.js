@@ -275,6 +275,13 @@ class WhatsAppClient {
                 await this.handleBratsticker(sender, url);
                 return;
             }
+
+            if (lowerText.startsWith('!ig ')) {
+            const url = text.substring(4).trim();
+            await this.handleInstagramCommand(sender, url);
+            return;
+            }
+            
             // Command: !facebook [link]
             if (lowerText.startsWith('!fb')) {
                 const url = text.substring(4).trim();
@@ -341,11 +348,12 @@ class WhatsAppClient {
     // =================== COMMAND HANDLERS ===================
 
     async sendHelpMessage(sender) {
-        const helpMessage = `🤖 *DAFTAR COMMAND BOT*\n\n` +
+        const helpMessage = `🤖 *DAFTAR PERINTAH YANG TERSEDIA*\n\n` +
             `📱 *Media Downloader:*\n` +
             `• !tiktok [link] - Download video TikTok\n` +
             `• !fb [link] - Download video Facebook\n` +
             `• !ytmp4 [link] - Download video YouTube\n` +
+            `• !ig [link] - Download video Instagram\n` +
             `• !ytmp3 [link] - Download audio YouTube\n\n` +
             `🎨 *Tools:*\n` +
             `• !sticker - Buat sticker (kirim gambar)\n` +
@@ -494,6 +502,29 @@ class WhatsAppClient {
             return false
         }
     }
+
+    async handleInstagramCommand(sender, url) {
+    if (!url) {
+        await this.sendMessage(sender,
+            "❌ Format salah!\n\n" +
+            "Cara penggunaan: `!instagram [link]`\n" +
+            "Contoh: `!instagram https://www.instagram.com/reel/...`\n" +
+            "Atau: `!ig https://www.instagram.com/p/...`"
+        );
+        return;
+    }
+
+    // Update regex untuk menangani berbagai format Instagram URL
+    const instagramRegex = /(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:p|reel|tv)\/[A-Za-z0-9_-]+/;
+    
+    if (!instagramRegex.test(url)) {
+        await this.sendMessage(sender, "❌ Link Instagram tidak valid!\n\nPastikan link adalah post, reel, atau IGTV Instagram");
+        return;
+    }
+
+    await this.processInstagramDownload(sender, url);
+}
+
 
     async handleFacebookCommand(sender, url) {
         if (!url) {
@@ -774,6 +805,93 @@ class WhatsAppClient {
             await this.sendMessage(sender, '❌ Terjadi kesalahan saat membuat sticker');
         }
     }
+
+    async processInstagramDownload(sender, url) {
+    try {
+        await this.sendMessage(sender, '⏳ Sedang memproses download Instagram...');
+        
+        const { data } = await axios.get(`${config.ferdev.apiUrl}/downloader/instagram`, {
+            params: {
+                link: url,
+                apikey: config.ferdev.apiKey,
+            },
+            timeout: 30000 // 30 detik timeout
+        });
+
+        console.log('Instagram API Response:', JSON.stringify(data, null, 2));
+
+        if (!data || !data.success) {
+            await this.sendMessage(sender, '❌ Gagal mendownload konten Instagram');
+            return;
+        }
+
+        const responseData = data.data;
+        
+        if (!responseData || !responseData.success) {
+            await this.sendMessage(sender, '❌ Gagal memproses konten Instagram');
+            return;
+        }
+
+        // Handle berbagai tipe konten Instagram
+        if (responseData.type === 'video') {
+            await this.handleInstagramVideo(sender, responseData);
+        } else if (responseData.type === 'image') {
+            await this.handleInstagramImage(sender, responseData);
+        } else if (responseData.type === 'carousel') {
+            await this.handleInstagramCarousel(sender, responseData);
+        } else {
+            await this.sendMessage(sender, '❌ Tipe konten Instagram tidak didukung');
+        }
+
+    } catch (error) {
+        console.error('Error processing Instagram download:', error);
+        
+        if (error.code === 'ECONNABORTED') {
+            await this.sendMessage(sender, '❌ Timeout: Server terlalu lambat merespons');
+        } else if (error.response?.status === 429) {
+            await this.sendMessage(sender, '❌ Terlalu banyak request. Coba lagi dalam beberapa menit');
+        } else {
+            await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
+        }
+    }
+}
+
+    async handleInstagramVideo(sender, responseData) {
+    try {
+        // Cek apakah ada video URLs
+        if (!responseData.videoUrls || responseData.videoUrls.length === 0) {
+            await this.sendMessage(sender, '❌ Video tidak ditemukan');
+            return;
+        }
+
+        // Ambil video berkualitas terbaik (biasanya index 0)
+        const videoData = responseData.videoUrls[0];
+        const videoUrl = videoData.url;
+        
+        if (!videoUrl) {
+            await this.sendMessage(sender, '❌ Link video tidak valid');
+            return;
+        }
+
+        // Prepare caption
+        const title = responseData.metadata?.title || 'Video Instagram';
+        const caption = `🎬 *Instagram Video*\n\n${title}\n\n✅ Video berhasil didownload!`;
+
+        // Kirim video
+        await this.sock.sendMessage(sender, {
+            video: { url: videoUrl },
+            caption: caption,
+            mimetype: 'video/mp4'
+        });
+
+        console.log(`✅ Instagram video sent successfully to ${sender}`);
+
+    } catch (error) {
+        console.error('Error handling Instagram video:', error);
+        await this.sendMessage(sender, '❌ Gagal mengirim video Instagram');
+    }
+}
+
 
     async processFacebookDownload(sender, url) {
         try {
