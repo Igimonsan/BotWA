@@ -377,7 +377,7 @@ class WhatsAppClient {
             `• !quote - Quote Motivasi\n` +
             `• !pantun - Pantun random\n` +
             `• !moivasi - Motivasi kehidupan\n\n` +
-            `Contoh: !quote 1`;
+            `Contoh: !quote`;
 
         await this.sendMessage(sender, quoteMenu);
     }
