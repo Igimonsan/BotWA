@@ -2,147 +2,89 @@
 
 const daftarQuote = {
     quote: [
-        "Hidup ini seperti sepeda. Agar tetap seimbang, kamu harus terus bergerak.",
-        "Jangan menunggu kesempatan. Ciptakanlah kesempatan itu.",
-        "Masa depan milik mereka yang percaya pada keindahan mimpi mereka.",
-        "Kegagalan adalah sukses yang tertunda.",
-        "Orang yang sukses adalah orang yang dapat membangun fondasi yang kuat dengan bata yang dilemparkan kepadanya.",
-        "Mimpi tidak akan pernah menjadi kenyataan jika kamu hanya tidur.",
-        "Jika kamu tidak dapat melakukan hal-hal besar, lakukan hal-hal kecil dengan cara yang besar.",
-        "Kesuksesan adalah hasil dari persiapan, kerja keras, dan belajar dari kegagalan.",
-        "Jangan biarkan kemarin mengambil terlalu banyak dari hari ini.",
-        "Kamu tidak harus menjadi hebat untuk memulai, tetapi kamu harus memulai untuk menjadi hebat."
+    "Hidup ini seperti sepeda. Agar tetap seimbang, kamu harus terus bergerak. – Albert Einstein",
+    "Jangan menunggu kesempatan. Ciptakanlah kesempatan itu. – George Bernard Shaw",
+    "Masa depan milik mereka yang percaya pada keindahan mimpi mereka. – Eleanor Roosevelt",
+    "Kegagalan adalah sukses yang tertunda. – Thomas A. Edison",
+    "Orang yang sukses adalah orang yang dapat membangun fondasi yang kuat dengan bata yang dilemparkan kepadanya. – David Brinkley",
+    "Mimpi tidak akan pernah menjadi kenyataan jika kamu hanya tidur. – John C. Maxwell",
+    "Jika kamu tidak dapat melakukan hal-hal besar, lakukan hal-hal kecil dengan cara yang besar. – Napoleon Hill",
+    "Kesuksesan adalah hasil dari persiapan, kerja keras, dan belajar dari kegagalan. – Colin Powell",
+    "Jangan biarkan kemarin mengambil terlalu banyak dari hari ini. – Will Rogers",
+    "Tindakan adalah kunci dasar untuk semua kesuksesan. – Pablo Picasso",
+    "Kebahagiaan bukanlah sesuatu yang sudah jadi. Itu berasal dari tindakan Anda sendiri. – Dalai Lama",
+    "Satu-satunya cara untuk melakukan pekerjaan hebat adalah dengan mencintai apa yang kamu lakukan. – Steve Jobs",
+    "Sukses biasanya datang kepada mereka yang terlalu sibuk untuk mencarinya. – Henry David Thoreau",
+    "Pendidikan adalah senjata paling ampuh yang bisa kamu gunakan untuk mengubah dunia. – Nelson Mandela",
+    "Orang bijak belajar dari semua orang. – Paulo Coelho",
+    "Kamu tidak bisa menyilangkan lautan hanya dengan berdiri dan menatap air. – Rabindranath Tagore",
+    "Setiap orang berpikir untuk mengubah dunia, tetapi tidak ada yang berpikir untuk mengubah dirinya sendiri. – Leo Tolstoy",
+    "Seni kehidupan terletak dalam penyesuaian terhadap hal-hal kecil. – Samuel Johnson",
+    "Kekuatan tidak datang dari kemampuan fisik, tetapi dari kemauan yang gigih. – Mahatma Gandhi",
+    "Jangan takut untuk berjalan lambat. Takutlah hanya jika kamu berdiri diam. – Peribahasa Cina",
+    "Dalam tengah-tengah kesulitan terdapat kesempatan. – Albert Einstein",
+    "Yang lemah tidak pernah bisa memaafkan. Pemaafan adalah atribut dari yang kuat. – Mahatma Gandhi",
+    "Hanya mereka yang berani gagal besar yang bisa mencapai keberhasilan besar. – Robert F. Kennedy",
+    "Percayalah bahwa kamu bisa dan kamu sudah setengah jalan ke sana. – Theodore Roosevelt",
+    "Kebebasan sejati adalah kemampuan untuk mengatakan tidak. – Paulo Coelho"
     ],
     pantun: [
-        "Jalan-jalan ke Kota Bogor\nBeli roti sama kacang\nWalau hidup serba susah\nJangan lupa tetap semangat",
-        "Pergi ke pasar beli jambu\nJambu manis jambu merah\nHidup ini penuh cobaan\nTapi semangat jangan pernah merah",
-        "Makan siang di warung tenda\nPesan nasi sama sayur\nHidup memang tidak mudah\nTapi jangan sampai mundur",
-        "Ke pasar beli terong\nTerong ungu terong hijau\nJangan pernah putus asa\nMimpikanmu pasti tercapai",
-        "Burung elang terbang tinggi\nHinggap di pohon beringin\nSetiap masalah pasti ada jalan\nYang penting kita tetap yakin",
-        "Bunga melati bunga kenanga\nHarum semerbak di taman\nSemua orang punya mimpi\nTinggal bagaimana cara kita wujudkan",
-        "Pergi ke sawah lihat padi\nPadi kuning siap dipanen\nHidup butuh kerja keras\nBiar mimpi bisa terwujud kemudian",
-        "Ikan mas berenang di kolam\nAirnya jernih airnya bening\nJangan mudah menyerah\nKarena hidup butuh perjuangan yang panjang",
-        "Pohon mangga berbuah lebat\nBuahnya manis buahnya segar\nSetiap orang punya rezeki\nYang penting kita selalu bersyukur",
-        "Kucing garong lari ke hutan\nKejaran anjing si buntut putih\nHidup ini banyak rintangan\nTapi semangat jangan sampai putih"
+        [
+  "Burung perkutut, burung kutilang\nPacarku kentut, gak bilang-bilang.",
+  "Sudah butut, tak laku-laku\nSudah kentut, tak mau ngaku.",
+  "Kamu bata, aku sih mangga\nKamu cinta, aku sih nggak.",
+  "Sudah lurus, tambah bayang\nSudah kurus, tambah peyang.",
+  "Bola pingpong dimakan gelatik\nBiar ompong yang penting cantik.",
+  "Ikan hiu makan dinamit\nYuk kita merit.",
+  "Buka Facebook, pake kata sandi\nElo budug emang jarang mandi.",
+  "Dulu delman, sekarang gokar\nDulu teman, sekarang pacar.",
+  "Buah nangka, buah manggis\nNggak nyangka gue manis.",
+  "Good morning, selamat pagi\nGigi mu kuning, bau terasi.",
+  "Ke pasar, nyari obat gatal\nDasar, gak modal!",
+  "Kotak amal digoyang-goyang\nAku diramal jodohnya sama abang.",
+  "Mata belo, ala komedian\nGue sama elo maunya jadian.",
+  "Burung gelatik terlihat anteng\nKamu cantik aku ganteng.",
+  "Stroberi, mangga, apel\nSorry gak level.",
+  "Baju merah punya Mang Oding\nJangan marah, hanya just kidding.",
+  "Makan sambel ulek pakai kedondong\nGapapa jelek yang penting sombong.",
+  "Ikan hiu makan badak\nI luv you mendadak.",
+  "Dapet kado isinya tomat\nGue bodo amat.",
+  "Minum jamu makan nangka\nLihat kamu langsung ku suka.",
+  "Rumah perdu berjendela kaca\nSalam rindu buat yang baca.",
+  "Baju batik di atas pohon\nHai kamu yang cantik godain aku dong.",
+  "Jalan kaki ke pasar rebo\nJauh broo.",
+  "Ayam kurus bulunya kasar\nKasian yang beli, rugi bandar.",
+  "Jangan suka cemberut, jangan suka khawatir\nItu suara kentut, bukan suara petir."
+]
+
     ],
     motivasi: [
-        "💪 Jangan pernah menyerah! Setiap perjuangan memiliki hasil yang manis di ujungnya.",
-        "🌟 Kamu lebih kuat dari yang kamu pikirkan. Terus berjuang dan buktikan!",
-        "🚀 Mimpi bukanlah sesuatu yang kamu lihat saat tidur, tetapi sesuatu yang tidak membuatmu tidur.",
-        "🔥 Kesuksesan dimulai dari langkah pertama. Jangan takut untuk memulai!",
-        "⭐ Setiap hari adalah kesempatan baru untuk menjadi versi terbaik dari dirimu.",
-        "🌈 Setelah hujan pasti ada pelangi. Setelah kesulitan pasti ada kemudahan.",
-        "💎 Tekanan membuat berlian. Kesulitan membuatmu lebih kuat dan berharga.",
-        "🏆 Kegagalan bukan akhir dari segalanya, tetapi awal dari kesuksesan yang sesungguhnya.",
-        "🌺 Tumbuh dan berkembang membutuhkan waktu. Bersabarlah dengan prosesmu.",
-        "🎯 Fokus pada tujuanmu, bukan pada hambatanmu. Kamu pasti bisa mencapainya!"
+        "Gagal hari ini bukan berarti kamu gagal selamanya.",
+  "Semua orang hebat pernah ragu, tapi mereka tetap jalan.",
+  "Kalau kamu gak mulai sekarang, kapan lagi?",
+  "Bangkit itu gak harus sempurna, cukup jangan nyerah.",
+  "Lelah itu wajar, tapi jangan berhenti.",
+  "Jangan fokus sama jatuhnya, fokus sama bangkitnya.",
+  "Mimpi gak akan ngejar kamu, kamulah yang harus ngejar mimpi.",
+  "Berani salah adalah langkah pertama menuju benar.",
+  "Pelan-pelan juga jalan, asal gak mundur.",
+  "Gak apa-apa mulai dari nol, asal jangan nol terus.",
+  "Kamu udah sampai sejauh ini, masa mau nyerah?",
+  "Setiap gagal itu pelajaran, bukan akhir cerita.",
+  "Kamu gak harus jadi hebat dulu untuk mulai. Mulai aja dulu.",
+  "Bahkan mentari aja terbit dari gelap.",
+  "Gak ada yang instan kecuali mie. Hidup butuh proses.",
+  "Yang penting bukan kecepatannya, tapi konsistensinya.",
+  "Diam bukan solusi, bergerak walau pelan lebih berarti.",
+  "Kesuksesan gak datang dari teori aja, tapi dari aksi.",
+  "Kamu bukan malas, kamu cuma butuh arah.",
+  "Banyak yang mulai bareng kamu, tapi gak semua mau bertahan.",
+  "Masa lalu bukan tempat tinggal, cuma tempat lewat.",
+  "Hari ini adalah kesempatan kedua yang kemarin kamu cari.",
+  "Bukti kamu kuat itu bukan gak pernah nangis, tapi tetap lanjut meski nangis.",
+  "Selama kamu belum menyerah, kamu masih punya peluang.",
+  "Luka bikin kuat, gagal bikin paham, jatuh bikin sadar."
     ]
 };
 
 module.exports = daftarQuote;
-
-// File: handlers/quote.js (Update QuoteGenerator class)
-
-const daftarQuote = require('./daftarquote');
-
-class QuoteGenerator {
-    constructor() {
-        this.stats = {
-            totalQuotes: 0,
-            totalPantun: 0,
-            totalMotivasi: 0,
-            lastGenerated: null
-        };
-    }
-
-    getRandomContent(type) {
-        try {
-            const validTypes = ['quote', 'pantun', 'motivasi'];
-            
-            if (!validTypes.includes(type)) {
-                return {
-                    success: false,
-                    error: '❌ Tipe konten tidak valid!'
-                };
-            }
-
-            const contentList = daftarQuote[type];
-            
-            if (!contentList || contentList.length === 0) {
-                return {
-                    success: false,
-                    error: `❌ Daftar ${type} tidak ditemukan atau kosong!`
-                };
-            }
-
-            // Ambil konten random
-            const randomIndex = Math.floor(Math.random() * contentList.length);
-            const randomContent = contentList[randomIndex];
-
-            // Update stats
-            this.stats[`total${type.charAt(0).toUpperCase() + type.slice(1)}`]++;
-            this.stats.lastGenerated = new Date();
-
-            // Format output berdasarkan tipe
-            let formatted = '';
-            switch (type) {
-                case 'quote':
-                    formatted = `✨ *Quote Inspiratif* ✨\n\n"${randomContent}"\n\n━━━━━━━━━━━━━━━━━━━\n💫 Tetap semangat dan jangan pernah menyerah!`;
-                    break;
-                case 'pantun':
-                    formatted = `🎭 *Pantun Hari Ini* 🎭\n\n${randomContent}\n\n━━━━━━━━━━━━━━━━━━━\n🌟 Semoga menghibur dan memotivasi!`;
-                    break;
-                case 'motivasi':
-                    formatted = `🔥 *Motivasi Hari Ini* 🔥\n\n${randomContent}\n\n━━━━━━━━━━━━━━━━━━━\n✨ Kamu pasti bisa! Semangat terus!`;
-                    break;
-            }
-
-            return {
-                success: true,
-                content: randomContent,
-                formatted: formatted,
-                type: type
-            };
-
-        } catch (error) {
-            console.error('Error generating random content:', error);
-            return {
-                success: false,
-                error: '❌ Terjadi kesalahan saat mengambil konten'
-            };
-        }
-    }
-
-    // Fungsi untuk mendapatkan statistik
-    getStats() {
-        return {
-            ...this.stats,
-            totalAvailable: {
-                quotes: daftarQuote.quote?.length || 0,
-                pantun: daftarQuote.pantun?.length || 0,
-                motivasi: daftarQuote.motivasi?.length || 0
-            }
-        };
-    }
-
-    // Fungsi untuk menambah konten baru (jika diperlukan)
-    addContent(type, content) {
-        try {
-            if (!daftarQuote[type]) {
-                daftarQuote[type] = [];
-            }
-            daftarQuote[type].push(content);
-            return {
-                success: true,
-                message: `✅ Konten ${type} berhasil ditambahkan!`
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: '❌ Gagal menambahkan konten'
-            };
-        }
-    }
-}
-
-module.exports = QuoteGenerator;

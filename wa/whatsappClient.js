@@ -363,7 +363,9 @@ class WhatsAppClient {
             `🎨 *Tools:*\n` +
             `• !sticker - Buat sticker (kirim gambar)\n` +
             `• !brats - Buat sticker dari teks\n` +
-            `• !quote [1|2|3] - Generate quote\n` +
+            `• !quote - Quote random\n` +
+            `• !pantun - Pantun random\n` +
+            `• !motivasi - Motivasi random\n` +
             `• !ai [pertanyaan] - Chat dengan AI\n` +
             `• !hitamkan - Penghitaman (kirim gambar)\n\n` +
             `ℹ️ *Info:*\n` +
@@ -687,7 +689,7 @@ class WhatsAppClient {
 
     async handleQuoteCommand(sender, type) {
     try {
-        await this.sendMessage(sender, '⏳ Sedang mengambil konten...');
+        await this.sendMessage(sender, '⏳ Tungu sebentar..');
 
         const result = this.quoteGenerator.getRandomContent(type);
 
