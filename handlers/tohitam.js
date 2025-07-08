@@ -19,7 +19,7 @@ async function tohitamCommand(sock, m) {
 
         // Kirim pesan loading
         const loadingMsg = await sock.sendMessage(m.key.remoteJid, {
-            text: '⏳ Proses penghitaman...'
+            text: '⏳ Memproses gambar...'
         }, { quoted: m });
 
         // Download gambar dari WhatsApp
@@ -29,6 +29,14 @@ async function tohitamCommand(sock, m) {
             throw new Error('Gagal mendownload gambar dari WhatsApp');
         }
         
+        console.log('Image downloaded from WhatsApp, size:', buffer.length, 'bytes');
+
+        // Update pesan loading
+        await sock.sendMessage(m.key.remoteJid, {
+            text: '⏳ Mengupload gambar ke server...',
+            edit: loadingMsg.key
+        });
+
         // Upload gambar ke CDN untuk mendapatkan URL menggunakan uploader
         const imageUrl = await uploader(buffer);
         
@@ -40,83 +48,80 @@ async function tohitamCommand(sock, m) {
 
         // Update pesan loading
         await sock.sendMessage(m.key.remoteJid, {
-            text: '⏳ Mengkonversi ke hitam putih...'
-        }, { quoted: m });
+            text: '⏳ Mengkonversi gambar ke hitam putih...',
+            edit: loadingMsg.key
+        });
 
         // Panggil API tohitam dengan link dari uploader
-        const apikey = process.env.FERDEV_API_KEY; // Ganti dengan API key yang valid
+        const apikey = process.env.FERDEV_API_KEY;
+        
+        if (!apikey) {
+            throw new Error('API key tidak ditemukan. Pastikan FERDEV_API_KEY sudah diset di environment variables');
+        }
+        
         const apiUrl = `https://api.ferdev.my.id/maker/tohitam?link=${encodeURIComponent(imageUrl)}&apikey=${apikey}`;
         
-        console.log('Calling API URL:', apiUrl);
-        
-        // Panggil API dan ambil response JSON (TIDAK menggunakan arraybuffer)
-        const response = await axios.get(apiUrl);
+        console.log('Calling API:', apiUrl);
 
-        // Debug: Log response untuk melihat struktur data
-        console.log('API Response Status:', response.status);
-        console.log('API Response Data:', JSON.stringify(response.data, null, 2));
+        const response = await axios.get(apiUrl, {
+            responseType: 'arraybuffer',
+            timeout: 30000, // 30 detik timeout
+            validateStatus: (status) => status === 200
+        });
 
         // Cek apakah response berhasil
         if (response.status !== 200) {
-            throw new Error(`API HTTP error: ${response.status}`);
+            throw new Error(`API response status: ${response.status}`);
         }
 
-        // Cek apakah response data ada
-        if (!response.data) {
-            throw new Error('Response data kosong');
+        if (!response.data || response.data.length === 0) {
+            throw new Error('API mengembalikan data kosong');
         }
 
-        // Cek apakah API berhasil memproses
-        if (response.data.success === false) {
-            const errorMsg = response.data.message || response.data.error || 'API gagal memproses gambar';
-            throw new Error(`API Error: ${errorMsg}`);
-        }
+        console.log('API response received, size:', response.data.length, 'bytes');
 
-        // Jika success tidak ada dalam response, coba langsung ambil dlink
-        if (response.data.success !== true && !response.data.dlink) {
-            throw new Error('Response tidak mengandung success status atau dlink');
-        }
-
-        // Ambil link download dari response JSON
-        const downloadLink = response.data.dlink;
-        
-        if (!downloadLink) {
-            throw new Error('Link download tidak ditemukan dalam response');
-        }
-
-        console.log('Download link:', downloadLink);
-
-        // Update pesan loading
+        // Hapus pesan loading
         await sock.sendMessage(m.key.remoteJid, {
-            text: '⏳ Mendownload hasil...'
-        }, { quoted: m });
-
-        // Download gambar hasil dari link yang diberikan API
-        const imageResponse = await axios.get(downloadLink, {
-            responseType: 'arraybuffer'
+            delete: loadingMsg.key
         });
-
-        if (imageResponse.status !== 200) {
-            throw new Error('Gagal mendownload gambar hasil dari server');
-        }
 
         // Kirim hasil gambar hitam putih
         await sock.sendMessage(m.key.remoteJid, {
-            image: Buffer.from(imageResponse.data),
-            caption: '✅ Ramaikan lalu hitamkan!!!!'
+            image: Buffer.from(response.data),
+            caption: '✅ Gambar berhasil dikonversi ke hitam putih!\n\n_Powered by FerDev API_'
         }, { quoted: m });
+
+        console.log('Tohitam command completed successfully');
 
     } catch (error) {
         console.error('Error tohitam command:', error);
         
-        // Log detail error untuk debugging
-        if (error.response) {
-            console.log('Error Response Status:', error.response.status);
-            console.log('Error Response Data:', error.response.data);
+        // Hapus pesan loading jika ada error
+        try {
+            if (loadingMsg) {
+                await sock.sendMessage(m.key.remoteJid, {
+                    delete: loadingMsg.key
+                });
+            }
+        } catch (deleteError) {
+            console.error('Error deleting loading message:', deleteError);
         }
+
+        // Kirim pesan error yang lebih spesifik
+        let errorMessage = '❌ Terjadi kesalahan saat memproses gambar.';
         
+        if (error.message.includes('API key')) {
+            errorMessage = '❌ Konfigurasi API key tidak valid. Silahkan hubungi admin.';
+        } else if (error.message.includes('timeout')) {
+            errorMessage = '❌ Timeout saat memproses gambar. Silahkan coba lagi.';
+        } else if (error.message.includes('upload')) {
+            errorMessage = '❌ Gagal mengupload gambar. Silahkan coba lagi.';
+        } else if (error.message.includes('download')) {
+            errorMessage = '❌ Gagal mendownload gambar dari WhatsApp. Silahkan coba lagi.';
+        }
+
         await sock.sendMessage(m.key.remoteJid, {
-            text: `❌ Terjadi kesalahan saat memproses gambar: ${error.message}`
+            text: errorMessage
         }, { quoted: m });
     }
 }
