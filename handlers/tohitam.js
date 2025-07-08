@@ -40,54 +40,32 @@ async function tohitamCommand(sock, m) {
 
         // Update pesan loading
         await sock.sendMessage(m.key.remoteJid, {
-            text: '⏳ Mengkonversi ke hitam putih...'
+            text: '⏳ Proses penghitaman...\n'
         }, { quoted: m });
 
         // Panggil API tohitam dengan link dari uploader
         const apikey = process.env.FERDEV_API_KEY; // Ganti dengan API key yang valid
         const apiUrl = `https://api.ferdev.my.id/maker/tohitam?link=${encodeURIComponent(imageUrl)}&apikey=${apikey}`;
         
-        // Panggil API dan ambil response JSON
-        const response = await axios.get(apiUrl);
-
-        // Cek apakah response berhasil
-        if (response.status !== 200 || !response.data.success) {
-            throw new Error('API response tidak berhasil atau gagal memproses gambar');
-        }
-
-        // Ambil link download dari response JSON
-        const downloadLink = response.data.dlink;
-        
-        if (!downloadLink) {
-            throw new Error('Link download tidak ditemukan dalam response');
-        }
-
-        console.log('Download link:', downloadLink);
-
-        // Update pesan loading
-        await sock.sendMessage(m.key.remoteJid, {
-            text: '⏳ Mendownload hasil...'
-        }, { quoted: m });
-
-        // Download gambar hasil dari link yang diberikan API
-        const imageResponse = await axios.get(downloadLink, {
+        const response = await axios.get(apiUrl, {
             responseType: 'arraybuffer'
         });
 
-        if (imageResponse.status !== 200) {
-            throw new Error('Gagal mendownload gambar hasil dari server');
+        // Cek apakah response berhasil
+        if (response.status !== 200) {
+            throw new Error('API response tidak berhasil');
         }
 
         // Kirim hasil gambar hitam putih
         await sock.sendMessage(m.key.remoteJid, {
-            image: Buffer.from(imageResponse.data),
+            image: Buffer.from(response.data.dlink),
             caption: '✅ Ramaikan lalu hitamkan!!!!'
         }, { quoted: m });
 
     } catch (error) {
         console.error('Error tohitam command:', error);
         await sock.sendMessage(m.key.remoteJid, {
-            text: `❌ Terjadi kesalahan saat memproses gambar: ${error.message}`
+            text: '❌ Terjadi kesalahan saat memproses gambar. Silahkan coba lagi.'
         }, { quoted: m });
     }
 }
