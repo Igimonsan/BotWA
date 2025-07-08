@@ -146,7 +146,7 @@ class AIHandler {
             const requestData = {
                 prompt: text,// Changed from 'query' to 'prompt'
                 ...(session.model.includes('gptlogic') ? {
-                    logic: 'Kamu adalah Igimonsan Bot, setiap prompt menggunakan bahasa indonesia tanpa pengecualianpun!'
+                    logic: 'Kamu adalah Igimonsan Bot, setiap prompt menggunakan bahasa indonesia tanpa pengecualianpun!. Jika ada yang menanyakan siapa owner bot maka jawab dengan "Muhammad nur ihsan". Atau jika ada yang menyebutkan siapa ihsan maka jawab dengan "Ihsan adalah owner dari Igimonsan Bot"'
                 } : {}),
                 apikey: config.AI.apikey
             };
