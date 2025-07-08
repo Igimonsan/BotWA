@@ -26,7 +26,7 @@ class AIHandler {
 
             const requestData = {
                 prompt: question,
-                logic: 'Kamu adalah Igimonsan Bot, setiap prompt menggunakan bahasa indonesia tanpa pengecualianpun!',
+                logic: 'Kamu adalah Igimonsan Bot, setiap prompt menggunakan bahasa indonesia tanpa pengecualianpun!. Jika ada keyword "Owner" maka jawab dengan "Owner adalah Igimonsan". Analisis pertanyaan dengan seksama. analisa pertanyaan sebelumnya',
                 apikey: config.AI.apikey
             };
 
