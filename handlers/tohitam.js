@@ -47,12 +47,34 @@ async function tohitamCommand(sock, m) {
         const apikey = process.env.FERDEV_API_KEY; // Ganti dengan API key yang valid
         const apiUrl = `https://api.ferdev.my.id/maker/tohitam?link=${encodeURIComponent(imageUrl)}&apikey=${apikey}`;
         
-        // Panggil API dan ambil response JSON
+        console.log('Calling API URL:', apiUrl);
+        
+        // Panggil API dan ambil response JSON (TIDAK menggunakan arraybuffer)
         const response = await axios.get(apiUrl);
 
+        // Debug: Log response untuk melihat struktur data
+        console.log('API Response Status:', response.status);
+        console.log('API Response Data:', JSON.stringify(response.data, null, 2));
+
         // Cek apakah response berhasil
-        if (response.status !== 200 || !response.data.success) {
-            throw new Error('API response tidak berhasil atau gagal memproses gambar');
+        if (response.status !== 200) {
+            throw new Error(`API HTTP error: ${response.status}`);
+        }
+
+        // Cek apakah response data ada
+        if (!response.data) {
+            throw new Error('Response data kosong');
+        }
+
+        // Cek apakah API berhasil memproses
+        if (response.data.success === false) {
+            const errorMsg = response.data.message || response.data.error || 'API gagal memproses gambar';
+            throw new Error(`API Error: ${errorMsg}`);
+        }
+
+        // Jika success tidak ada dalam response, coba langsung ambil dlink
+        if (response.data.success !== true && !response.data.dlink) {
+            throw new Error('Response tidak mengandung success status atau dlink');
         }
 
         // Ambil link download dari response JSON
