@@ -86,6 +86,13 @@ async function tohitamCommand(sock, m) {
 
     } catch (error) {
         console.error('Error tohitam command:', error);
+        
+        // Log detail error untuk debugging
+        if (error.response) {
+            console.log('Error Response Status:', error.response.status);
+            console.log('Error Response Data:', error.response.data);
+        }
+        
         await sock.sendMessage(m.key.remoteJid, {
             text: `❌ Terjadi kesalahan saat memproses gambar: ${error.message}`
         }, { quoted: m });
