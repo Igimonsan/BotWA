@@ -19,7 +19,7 @@ async function tohitamCommand(sock, m) {
 
         // Kirim pesan loading
         const loadingMsg = await sock.sendMessage(m.key.remoteJid, {
-            text: '⏳ Memproses gambar...'
+            text: '⏳ Proses penghytaman'
         }, { quoted: m });
 
         // Download gambar dari WhatsApp
@@ -33,7 +33,7 @@ async function tohitamCommand(sock, m) {
 
         // Update pesan loading
         await sock.sendMessage(m.key.remoteJid, {
-            text: '⏳ Mengupload gambar ke server...',
+            text: '⏳ Proses penghitaman',
             edit: loadingMsg.key
         });
 
@@ -48,7 +48,7 @@ async function tohitamCommand(sock, m) {
 
         // Update pesan loading
         await sock.sendMessage(m.key.remoteJid, {
-            text: '⏳ Mengkonversi gambar ke hitam putih...',
+            text: '⏳ Proses penghitaman',
             edit: loadingMsg.key
         });
 
@@ -88,7 +88,7 @@ async function tohitamCommand(sock, m) {
         // Kirim hasil gambar hitam putih
         await sock.sendMessage(m.key.remoteJid, {
             image: Buffer.from(response.data),
-            caption: '✅ Gambar berhasil dikonversi ke hitam putih!\n\n_Powered by FerDev API_'
+            caption: '😈Ramaikan lalu hitamkan'
         }, { quoted: m });
 
         console.log('Tohitam command completed successfully');
