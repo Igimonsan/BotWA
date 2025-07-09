@@ -58,15 +58,8 @@ class TikTokBot {
             console.log('📁 Menyiapkan folder...');
             
             // Buat folder utama
-            await fs.ensureDir(config.folders.downloads);
             await fs.ensureDir(config.folders.temp);
             await fs.ensureDir(config.folders.sessions);
-
-            // Buat folder untuk setiap kategori
-            for (const [key, category] of Object.entries(config.categories)) {
-                const categoryPath = path.join(config.folders.downloads, category);
-                await fs.ensureDir(categoryPath);
-            }
 
             console.log('✅ Folder berhasil disiapkan');
             this.displayFolderStructure();
