@@ -16,94 +16,116 @@ const axios = require('axios');
 
 class WhatsAppClient {
      constructor() {
-    this.sock = null;
-    this.userStates = new Map();
-    
-    // =================== TAMBAHAN UNTUK TRACKING DOWNLOAD FILES ===================
-    this.downloadStats = {
-        totalFiles: 0,
-        totalSize: 0, // dalam bytes
-        filesByType: {
-            video: 0,
-            audio: 0,
-            image: 0,
-            sticker: 0
-        },
-        platformStats: {
-            tiktok: { count: 0, size: 0 },
-            instagram: { count: 0, size: 0 },
-            facebook: { count: 0, size: 0 },
-            youtube: { count: 0, size: 0 },
-            sticker: { count: 0, size: 0 }
-        }
-    };
-    
-    this.aiHandler = new AIHandler();
-    this.stickerMaker = new StickerMaker();
-    this.quoteGenerator = new QuoteGenerator();
+        this.sock = null;
+        this.userStates = new Map();
+        this.aiHandler = new AIHandler();
+        this.stickerMaker = new StickerMaker();
+        this.quoteGenerator = new QuoteGenerator();
 
-    // ANTI-SPAM SYSTEM
-    this.messageQueue = new Map();
-    this.userLastMessage = new Map();
-    this.userWelcomeCount = new Map();
-    this.processingUsers = new Set();
+        // ANTI-SPAM SYSTEM
+        this.messageQueue = new Map();
+        this.userLastMessage = new Map();
+        this.userWelcomeCount = new Map();
+        this.processingUsers = new Set();
 
-    // =================== TAMBAHAN UNTUK STATS BOT ===================
-    this.botStats = {
-        startTime: Date.now(), // Waktu bot pertama kali dijalankan
-        totalMessages: 0,
-        commandsProcessed: 0,
-        apiSuccess: 0,
-        apiErrors: 0,
-        mediaProcessed: 0,
-        stickersCreated: 0,
-        videoDownloads: 0,
-        audioDownloads: 0,
-        aiQueries: 0,
-        errors: 0,
-        lastReset: Date.now(),
-        commandStats: {
-            tiktok: 0,
-            instagram: 0,
-            facebook: 0,
-            youtube: 0,
-            sticker: 0,
-            ai: 0,
-            quote: 0,
-            pantun: 0,
-            motivasi: 0,
-            brat: 0,
-            help: 0,
-            info: 0,
-            ibot: 0
-        }
-    };
+        this.downloadStats = {
+    totalFiles: 0,
+    totalSize: 0, // dalam bytes
+    byType: {
+        video: { count: 0, size: 0 },
+        audio: { count: 0, size: 0 },
+        image: { count: 0, size: 0 },
+        sticker: { count: 0, size: 0 }
+    },
+    bySource: {
+        tiktok: { count: 0, size: 0 },
+        instagram: { count: 0, size: 0 },
+        facebook: { count: 0, size: 0 },
+        youtube: { count: 0, size: 0 },
+        ytmp3: { count: 0, size: 0 },
+        ytmp4: { count: 0, size: 0 }
+    }
+};
 
-    this.setupCleanupInterval();
-}
+// UPTIME PERSISTENT (tidak terpengaruh refresh)
+this.persistentUptime = {
+    startTime: Date.now(),
+    lastRefresh: Date.now(),
+    totalUptime: 0 // akumulasi uptime sebelumnya
+};
 
+// AUTO RESET STATS SETIAP 2 HARI
+this.setupAutoReset();
+
+
+        // =================== TAMBAHAN UNTUK STATS BOT ===================
+        this.botStats = {
+            startTime: Date.now(),
+            totalMessages: 0,
+            commandsProcessed: 0,
+            apiSuccess: 0,
+            apiErrors: 0,
+            mediaProcessed: 0,
+            stickersCreated: 0,
+            videoDownloads: 0,
+            audioDownloads: 0,
+            aiQueries: 0,
+            errors: 0,
+            lastReset: Date.now(),
+            commandStats: {
+                tiktok: 0,
+                instagram: 0,
+                facebook: 0,
+                youtube: 0,
+                sticker: 0,
+                ai: 0,
+                quote: 0,
+                pantun: 0,
+                motivasi: 0,
+                brat: 0,
+                help: 0,
+                info: 0,
+                ibot: 0
+            }
+        };
+
+        this.setupCleanupInterval();
+    }
 
     getRandomDelay() {
         return Math.floor(Math.random() * 1000) + 1000;
     }
 
-    updateDownloadStats(platform, fileType, fileSize = 0) {
+    setupAutoReset() {
+    // Reset setiap 2 hari (48 jam)
+    const resetInterval = 48 * 60 * 60 * 1000;
+    
+    setInterval(() => {
+        console.log('🔄 Auto reset bot stats (2 hari)');
+        this.resetBotStats();
+    }, resetInterval);
+}
+
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    updateDownloadStats(source, type, fileSize = 0) {
     this.downloadStats.totalFiles++;
     this.downloadStats.totalSize += fileSize;
     
-    // Update stats berdasarkan tipe file
-    if (this.downloadStats.filesByType[fileType]) {
-        this.downloadStats.filesByType[fileType]++;
+    if (this.downloadStats.byType[type]) {
+        this.downloadStats.byType[type].count++;
+        this.downloadStats.byType[type].size += fileSize;
     }
     
-    // Update stats berdasarkan platform
-    if (this.downloadStats.platformStats[platform]) {
-        this.downloadStats.platformStats[platform].count++;
-        this.downloadStats.platformStats[platform].size += fileSize;
+    if (this.downloadStats.bySource[source]) {
+        this.downloadStats.bySource[source].count++;
+        this.downloadStats.bySource[source].size += fileSize;
     }
 }
 
-    formatFileSize(bytes) {
+    formatBytes(bytes) {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -111,9 +133,28 @@ class WhatsAppClient {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+// Method untuk get persistent uptime
+getPersistentUptime() {
+    const currentTime = Date.now();
+    const sessionUptime = currentTime - this.persistentUptime.lastRefresh;
+    const totalUptime = this.persistentUptime.totalUptime + sessionUptime;
+    
+    const days = Math.floor(totalUptime / (24 * 60 * 60 * 1000));
+    const hours = Math.floor((totalUptime % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+    const minutes = Math.floor((totalUptime % (60 * 60 * 1000)) / (60 * 1000));
+    const seconds = Math.floor((totalUptime % (60 * 1000)) / 1000);
+    
+    return { days, hours, minutes, seconds, totalMs: totalUptime };
+}
+
+// Method untuk get top commands (6 teratas)
+getTopCommands(limit = 6) {
+    return Object.entries(this.botStats.commandStats)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, limit)
+        .filter(([, count]) => count > 0);
+}
+
 
     // ANTI-SPAM: Cek apakah pesan duplicate
     isDuplicateMessage(sender, messageKey, text) {
@@ -316,7 +357,7 @@ class WhatsAppClient {
 
     async handleIBotCommand(sender) {
     try {
-        const uptime = this.getUptime();
+        const uptime = this.getPersistentUptime();
         const memoryUsage = process.memoryUsage();
         const activeUsers = this.processingUsers.size;
         const totalUsers = this.userStates.size;
@@ -324,36 +365,39 @@ class WhatsAppClient {
         // Format uptime
         const uptimeString = `${uptime.days}d ${uptime.hours}h ${uptime.minutes}m ${uptime.seconds}s`;
 
-        // Format memory usage
-        const formatBytes = (bytes) => {
-            return (bytes / 1024 / 1024).toFixed(2) + ' MB';
-        };
-
         // Success rate
         const totalApi = this.botStats.apiSuccess + this.botStats.apiErrors;
         const successRate = totalApi > 0 ? ((this.botStats.apiSuccess / totalApi) * 100).toFixed(1) : '0.0';
 
-        // Most used commands
-        const sortedCommands = Object.entries(this.botStats.commandStats)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 5);
-
-        const commandsText = sortedCommands.map(([cmd, count]) => `• ${cmd}: ${count}`).join('\n');
+        // Top 6 commands
+        const topCommands = this.getTopCommands(6);
+        const commandsText = topCommands.length > 0 
+            ? topCommands.map(([cmd, count]) => `• ${cmd}: ${count}x`).join('\n')
+            : '• Belum ada command yang digunakan';
 
         // Download statistics
-        const downloadText = Object.entries(this.downloadStats.platformStats)
-            .filter(([platform, stats]) => stats.count > 0)
-            .map(([platform, stats]) => `• ${platform}: ${stats.count} files (${this.formatFileSize(stats.size)})`)
-            .join('\n');
+        const downloadText = `• Total Files: ${this.downloadStats.totalFiles}\n` +
+            `• Total Size: ${this.formatBytes(this.downloadStats.totalSize)}\n` +
+            `• Video: ${this.downloadStats.byType.video.count} (${this.formatBytes(this.downloadStats.byType.video.size)})\n` +
+            `• Audio: ${this.downloadStats.byType.audio.count} (${this.formatBytes(this.downloadStats.byType.audio.size)})\n` +
+            `• Sticker: ${this.downloadStats.byType.sticker.count} (${this.formatBytes(this.downloadStats.byType.sticker.size)})`;
 
-        // File type statistics
-        const fileTypeText = Object.entries(this.downloadStats.filesByType)
-            .filter(([type, count]) => count > 0)
-            .map(([type, count]) => `• ${type}: ${count}`)
-            .join('\n');
+        // Source statistics
+        const sourceText = `• TikTok: ${this.downloadStats.bySource.tiktok.count}\n` +
+            `• Instagram: ${this.downloadStats.bySource.instagram.count}\n` +
+            `• Facebook: ${this.downloadStats.bySource.facebook.count}\n` +
+            `• YouTube MP4: ${this.downloadStats.bySource.ytmp4.count}\n` +
+            `• YouTube MP3: ${this.downloadStats.bySource.ytmp3.count}`;
 
-        const statsMessage = `🤖 *IGIMONSAN BOT - STATUS REALTIME*\n\n` +
-            `⏱️ *Uptime:* ${uptimeString}\n` +
+        // Days until next reset
+        const timeSinceReset = Date.now() - this.botStats.lastReset;
+        const resetInterval = 48 * 60 * 60 * 1000; // 2 hari
+        const timeUntilReset = resetInterval - timeSinceReset;
+        const hoursUntilReset = Math.floor(timeUntilReset / (60 * 60 * 1000));
+
+        const statsMessage = `🤖 *IGIMONSAN BOT - DASHBOARD REALTIME*\n\n` +
+            `⏱️ *System Uptime:* ${uptimeString}\n` +
+            `🔄 *Auto Reset:* ${hoursUntilReset}h lagi\n\n` +
             `📊 *Statistik Pesan:*\n` +
             `• Total Pesan: ${this.botStats.totalMessages}\n` +
             `• Command Diproses: ${this.botStats.commandsProcessed}\n` +
@@ -362,31 +406,23 @@ class WhatsAppClient {
             `• API Berhasil: ${this.botStats.apiSuccess}\n` +
             `• API Gagal: ${this.botStats.apiErrors}\n` +
             `• Success Rate: ${successRate}%\n\n` +
-            `📁 *Download Statistics:*\n` +
-            `• Total Files: ${this.downloadStats.totalFiles}\n` +
-            `• Total Size: ${this.formatFileSize(this.downloadStats.totalSize)}\n` +
-            `• Platform Downloads:\n${downloadText || '  Belum ada download'}\n\n` +
-            `📂 *File Types:*\n${fileTypeText || '  Belum ada file'}\n\n` +
-            `🎯 *Aktivitas:*\n` +
-            `• Sticker Dibuat: ${this.botStats.stickersCreated}\n` +
-            `• Video Download: ${this.botStats.videoDownloads}\n` +
-            `• Audio Download: ${this.botStats.audioDownloads}\n` +
-            `• AI Queries: ${this.botStats.aiQueries}\n\n` +
+            `📁 *Download Statistics:*\n${downloadText}\n\n` +
+            `🌐 *Download by Source:*\n${sourceText}\n\n` +
+            `🎯 *Aktivitas Khusus:*\n` +
+            `• AI Queries: ${this.botStats.aiQueries}\n` +
+            `• Errors: ${this.botStats.errors}\n\n` +
             `👥 *Pengguna:*\n` +
             `• Total Users: ${totalUsers}\n` +
             `• Sedang Aktif: ${activeUsers}\n\n` +
-            `🔧 *Sistem:*\n` +
-            `• Memory Used: ${formatBytes(memoryUsage.heapUsed)}\n` +
-            `• Memory Total: ${formatBytes(memoryUsage.heapTotal)}\n` +
-            `• Errors: ${this.botStats.errors}\n\n` +
-            `📋 *Top Commands:*\n${commandsText}\n\n` +
-            `🕐 *Bot Started:* ${new Date(this.botStats.startTime).toLocaleString('id-ID')}\n` +
-            `🔄 *Last Reset:* ${new Date(this.botStats.lastReset).toLocaleString('id-ID')}\n` +
+            `🔧 *System Resources:*\n` +
+            `• Memory Used: ${this.formatBytes(memoryUsage.heapUsed)}\n` +
+            `• Memory Total: ${this.formatBytes(memoryUsage.heapTotal)}\n\n` +
+            `🏆 *Top Commands (6 Teratas):*\n${commandsText}\n\n` +
+            `🕐 *Last Reset:* ${new Date(this.botStats.lastReset).toLocaleString('id-ID')}\n` +
             `💾 *Bot Version:* 2.1.0\n` +
             `🔄 *Status:* Online & Healthy`;
 
         await this.sendMessage(sender, statsMessage);
-        this.updateCommandStats('ibot');
 
     } catch (error) {
         console.error('Error handling ibot command:', error);
@@ -408,6 +444,7 @@ class WhatsAppClient {
 
             // =================== TAMBAHKAN COMMAND !ibot ===================
             if (lowerText === '!ibot') {
+                this.updateCommandStats('ibot');
                 await this.handleIBotCommand(sender);
                 return;
             }
@@ -597,110 +634,6 @@ class WhatsAppClient {
         await this.processStickerCreation(sender, message);
     }
 
-    async processTikTokDownload(sender, url) {
-    try {
-        await this.sendMessage(sender, '⏳ Sedang memproses download...');
-
-        const TikTokDownloader = require('../tiktok/tiktokDownloader');
-        const downloader = new TikTokDownloader();
-
-        const result = await downloader.processDownload(url, 'Video TikTok');
-
-        if (result.success) {
-            this.updateBotStats('api_success');
-            this.updateBotStats('video');
-            this.updateCommandStats('tiktok');
-            
-            // TAMBAHKAN TRACKING DOWNLOAD
-            const fileStats = await fs.stat(result.filePath);
-            this.updateDownloadStats('tiktok', 'video', fileStats.size);
-            
-            await this.sendVideo(sender, result.filePath, result.title, result.author);
-
-            setTimeout(async () => {
-                try {
-                    await fs.remove(result.filePath);
-                    console.log(`File ${result.fileName} telah dihapus`);
-                } catch (err) {
-                    console.error('Error deleting file:', err);
-                }
-            }, 60000);
-
-        } else {
-            this.updateBotStats('api_error');
-            await this.sendMessage(sender, result.error || '❌ Gagal mendownload video');
-        }
-
-    } catch (error) {
-        console.error('Error processing TikTok download:', error);
-        this.updateBotStats('api_error'); 
-        this.updateBotStats('error');
-        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
-    }
-}
-
-// 5. UPDATE METHOD processStickerCreation (tambahkan tracking)
-async processStickerCreation(sender, message) {
-    try {
-        await this.sendMessage(sender, '⏳ Sedang membuat sticker...');
-
-        const mediaData = await this.downloadMedia(message);
-
-        if (!mediaData) {
-            this.updateBotStats('api_error');
-            await this.sendMessage(sender, '❌ Gagal mengunduh media');
-            return;
-        }
-
-        console.log(`📁 Media downloaded: ${mediaData.mimetype}, size: ${mediaData.buffer.length} bytes`);
-
-        const validation = await this.stickerMaker.validateMedia(mediaData.buffer, mediaData.mimetype);
-
-        if (!validation.isValid) {
-            const errorMessage = validation.errors.join('\n');
-            await this.sendMessage(sender, `❌ ${errorMessage}`);
-            return;
-        }
-
-        const result = await this.stickerMaker.createSticker(mediaData.buffer, mediaData.mimetype);
-
-        if (result.success) {
-            this.updateBotStats('api_success');
-            this.updateBotStats('sticker');
-            this.updateCommandStats('sticker');
-            
-            // TAMBAHKAN TRACKING DOWNLOAD
-            const fileStats = await fs.stat(result.filePath);
-            this.updateDownloadStats('sticker', 'sticker', fileStats.size);
-            
-            await this.sendSticker(sender, result.filePath);
-
-            setTimeout(async () => {
-                try {
-                    await fs.remove(result.filePath);
-                    console.log(`🗑️ File sticker ${result.fileName} telah dihapus`);
-                } catch (err) {
-                    console.error('Error deleting sticker file:', err);
-                }
-            }, 60000);
-
-            console.log(`✅ Sticker created successfully for ${sender}`);
-
-        } else {
-            this.updateBotStats('api_error');
-            await this.sendMessage(sender, result.error || '❌ Gagal membuat sticker');
-            console.error('Sticker creation failed:', result.error);
-        }
-
-    } catch (error) {
-        console.error('Error processing sticker creation:', error);
-        this.updateBotStats('api_error');
-        this.updateBotStats('error');
-        await this.sendMessage(sender, '❌ Terjadi kesalahan saat membuat sticker');
-    }
-}
-
-
     async handleBratsticker(sender, text) {
         if (!text) {
             await this.sendMessage(sender,
@@ -718,8 +651,6 @@ async processStickerCreation(sender, message) {
             const result = await this.stickerMaker.createSticker(buffer, "image/jpeg")
 
             if (result.success) {
-                this.updateBotStats('api_success');
-                this.updateBotStats('sticker');
                 await this.sendSticker(sender, result.filePath);
 
                 // Cleanup file setelah 60 detik
@@ -731,7 +662,9 @@ async processStickerCreation(sender, message) {
                         console.error('Error deleting sticker file:', err);
                     }
                 }, 60000);
-                
+
+                const fileSize = result.fileSize || 0;
+                this.updateDownloadStats('sticker', 'sticker', fileSize);
                 console.log(`✅ Sticker created successfully for ${sender}`);
 
             } else {
@@ -740,7 +673,6 @@ async processStickerCreation(sender, message) {
             }
         } catch (error) {
             console.error('Error processing bratsticker:', error);
-            this.updateBotStats('api_error');
             await this.sendMessage(sender, '❌ Terjadi kesalahan saat membuat sticker');
         }
     }
@@ -1064,146 +996,101 @@ async processStickerCreation(sender, message) {
     }
 }
 
-    async handleIBotCommand(sender) {
-    try {
-        const uptime = this.getUptime();
-        const memoryUsage = process.memoryUsage();
-        const activeUsers = this.processingUsers.size;
-        const totalUsers = this.userStates.size;
+    async processTikTokDownload(sender, url) {
+        try {
+            await this.sendMessage(sender, '⏳ Sedang memproses download...');
 
-        // Format uptime
-        const uptimeString = `${uptime.days}d ${uptime.hours}h ${uptime.minutes}m ${uptime.seconds}s`;
+            const TikTokDownloader = require('../tiktok/tiktokDownloader');
+            const downloader = new TikTokDownloader();
 
-        // Format memory usage
-        const formatBytes = (bytes) => {
-            return (bytes / 1024 / 1024).toFixed(2) + ' MB';
-        };
+            const result = await downloader.processDownload(url, 'Video TikTok');
 
-        // Success rate
-        const totalApi = this.botStats.apiSuccess + this.botStats.apiErrors;
-        const successRate = totalApi > 0 ? ((this.botStats.apiSuccess / totalApi) * 100).toFixed(1) : '0.0';
+            if (result.success) {
+    this.updateBotStats('api_success');
+    this.updateBotStats('video');
+    
+    // TAMBAHKAN INI - Update download stats
+    const fileSize = result.fileSize || 0;
+    this.updateDownloadStats('tiktok', 'video', fileSize);
+    
+    await this.sendVideo(sender, result.filePath, result.title, result.author);
 
-        // Most used commands
-        const sortedCommands = Object.entries(this.botStats.commandStats)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 5);
+                setTimeout(async () => {
+                    try {
+                        await fs.remove(result.filePath);
+                        console.log(`File ${result.fileName} telah dihapus`);
+                    } catch (err) {
+                        console.error('Error deleting file:', err);
+                    }
+                }, 60000);
 
-        const commandsText = sortedCommands.map(([cmd, count]) => `• ${cmd}: ${count}`).join('\n');
+            } else {
+                await this.sendMessage(sender, result.error || '❌ Gagal mendownload video');
+            }
 
-        // Download statistics
-        const downloadText = Object.entries(this.downloadStats.platformStats)
-            .filter(([platform, stats]) => stats.count > 0)
-            .map(([platform, stats]) => `• ${platform}: ${stats.count} files (${this.formatFileSize(stats.size)})`)
-            .join('\n');
-
-        // File type statistics
-        const fileTypeText = Object.entries(this.downloadStats.filesByType)
-            .filter(([type, count]) => count > 0)
-            .map(([type, count]) => `• ${type}: ${count}`)
-            .join('\n');
-
-        const statsMessage = `🤖 *IGIMONSAN BOT - STATUS REALTIME*\n\n` +
-            `⏱️ *Uptime:* ${uptimeString}\n` +
-            `📊 *Statistik Pesan:*\n` +
-            `• Total Pesan: ${this.botStats.totalMessages}\n` +
-            `• Command Diproses: ${this.botStats.commandsProcessed}\n` +
-            `• Media Diproses: ${this.botStats.mediaProcessed}\n\n` +
-            `📈 *Statistik API:*\n` +
-            `• API Berhasil: ${this.botStats.apiSuccess}\n` +
-            `• API Gagal: ${this.botStats.apiErrors}\n` +
-            `• Success Rate: ${successRate}%\n\n` +
-            `📁 *Download Statistics:*\n` +
-            `• Total Files: ${this.downloadStats.totalFiles}\n` +
-            `• Total Size: ${this.formatFileSize(this.downloadStats.totalSize)}\n` +
-            `• Platform Downloads:\n${downloadText || '  Belum ada download'}\n\n` +
-            `📂 *File Types:*\n${fileTypeText || '  Belum ada file'}\n\n` +
-            `🎯 *Aktivitas:*\n` +
-            `• Sticker Dibuat: ${this.botStats.stickersCreated}\n` +
-            `• Video Download: ${this.botStats.videoDownloads}\n` +
-            `• Audio Download: ${this.botStats.audioDownloads}\n` +
-            `• AI Queries: ${this.botStats.aiQueries}\n\n` +
-            `👥 *Pengguna:*\n` +
-            `• Total Users: ${totalUsers}\n` +
-            `• Sedang Aktif: ${activeUsers}\n\n` +
-            `🔧 *Sistem:*\n` +
-            `• Memory Used: ${formatBytes(memoryUsage.heapUsed)}\n` +
-            `• Memory Total: ${formatBytes(memoryUsage.heapTotal)}\n` +
-            `• Errors: ${this.botStats.errors}\n\n` +
-            `📋 *Top Commands:*\n${commandsText}\n\n` +
-            `🕐 *Bot Started:* ${new Date(this.botStats.startTime).toLocaleString('id-ID')}\n` +
-            `🔄 *Last Reset:* ${new Date(this.botStats.lastReset).toLocaleString('id-ID')}\n` +
-            `💾 *Bot Version:* 2.1.0\n` +
-            `🔄 *Status:* Online & Healthy`;
-
-        await this.sendMessage(sender, statsMessage);
-        this.updateCommandStats('ibot');
-
-    } catch (error) {
-        console.error('Error handling ibot command:', error);
-        this.updateBotStats('error');
-        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mengambil info bot');
+        } catch (error) {
+            console.error('Error processing TikTok download:', error);
+            this.updateBotStats('api_error'); 
+            this.updateBotStats('error');
+            await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
+        }
     }
-}
 
     async processStickerCreation(sender, message) {
-    try {
-        await this.sendMessage(sender, '⏳ Sedang membuat sticker...');
+        try {
+            await this.sendMessage(sender, '⏳ Sedang membuat sticker...');
 
-        const mediaData = await this.downloadMedia(message);
+            const mediaData = await this.downloadMedia(message);
 
-        if (!mediaData) {
-            this.updateBotStats('api_error');
-            await this.sendMessage(sender, '❌ Gagal mengunduh media');
-            return;
+            if (!mediaData) {
+                this.updateBotStats('api_error'); // TAMBAHKAN INI
+                await this.sendMessage(sender, '❌ Gagal mengunduh media');
+                return;
+            }
+
+            console.log(`📁 Media downloaded: ${mediaData.mimetype}, size: ${mediaData.buffer.length} bytes`);
+
+            const validation = await this.stickerMaker.validateMedia(mediaData.buffer, mediaData.mimetype);
+
+            if (!validation.isValid) {
+                const errorMessage = validation.errors.join('\n');
+                await this.sendMessage(sender, `❌ ${errorMessage}`);
+                return;
+            }
+
+            const result = await this.stickerMaker.createSticker(mediaData.buffer, mediaData.mimetype);
+
+            if (result.success) {
+                this.updateBotStats('api_success'); // TAMBAHKAN INI
+                this.updateBotStats('sticker');
+                const fileSize = result.fileSize || 0;
+                this.updateDownloadStats('sticker', 'sticker', fileSize);
+                // Cleanup file setelah 60 detik
+                setTimeout(async () => {
+                    try {
+                        await fs.remove(result.filePath);
+                        console.log(`🗑️ File sticker ${result.fileName} telah dihapus`);
+                    } catch (err) {
+                        console.error('Error deleting sticker file:', err);
+                    }
+                }, 60000);
+
+                await this.sendMessage(sender, '✅ Sticker berhasil dibuat!');
+                console.log(`✅ Sticker created successfully for ${sender}`);
+
+            } else {
+                this.updateBotStats('api_error'); // TAMBAHKAN INI
+                await this.sendMessage(sender, result.error || '❌ Gagal membuat sticker');
+                console.error('Sticker creation failed:', result.error);
+            }
+
+        } catch (error) {
+            console.error('Error processing sticker creation:', error);
+            this.updateBotStats('api_error'); // TAMBAHKAN INI
+            this.updateBotStats('error'); // TAMBAHKAN INI
+            await this.sendMessage(sender, '❌ Terjadi kesalahan saat membuat sticker');
         }
-
-        console.log(`📁 Media downloaded: ${mediaData.mimetype}, size: ${mediaData.buffer.length} bytes`);
-
-        const validation = await this.stickerMaker.validateMedia(mediaData.buffer, mediaData.mimetype);
-
-        if (!validation.isValid) {
-            const errorMessage = validation.errors.join('\n');
-            await this.sendMessage(sender, `❌ ${errorMessage}`);
-            return;
-        }
-
-        const result = await this.stickerMaker.createSticker(mediaData.buffer, mediaData.mimetype);
-
-        if (result.success) {
-            this.updateBotStats('api_success');
-            this.updateBotStats('sticker');
-            this.updateCommandStats('sticker');
-            
-            // TAMBAHKAN TRACKING DOWNLOAD
-            const fileStats = await fs.stat(result.filePath);
-            this.updateDownloadStats('sticker', 'sticker', fileStats.size);
-            
-            await this.sendSticker(sender, result.filePath);
-
-            setTimeout(async () => {
-                try {
-                    await fs.remove(result.filePath);
-                    console.log(`🗑️ File sticker ${result.fileName} telah dihapus`);
-                } catch (err) {
-                    console.error('Error deleting sticker file:', err);
-                }
-            }, 60000);
-
-            console.log(`✅ Sticker created successfully for ${sender}`);
-
-        } else {
-            this.updateBotStats('api_error');
-            await this.sendMessage(sender, result.error || '❌ Gagal membuat sticker');
-            console.error('Sticker creation failed:', result.error);
-        }
-
-    } catch (error) {
-        console.error('Error processing sticker creation:', error);
-        this.updateBotStats('api_error');
-        this.updateBotStats('error');
-        await this.sendMessage(sender, '❌ Terjadi kesalahan saat membuat sticker');
     }
-}
 
     async processInstagramDownload(sender, url) {
     try {
@@ -1214,11 +1101,12 @@ async processStickerCreation(sender, message) {
                 link: url,
                 apikey: config.ferdev.apiKey,
             },
-            timeout: 30000
+            timeout: 30000 // 30 detik timeout
         });
 
+        console.log('Instagram API Response:', JSON.stringify(data, null, 2));
+
         if (!data || !data.success) {
-            this.updateBotStats('api_error');
             await this.sendMessage(sender, '❌ Gagal mendownload konten Instagram');
             return;
         }
@@ -1226,17 +1114,9 @@ async processStickerCreation(sender, message) {
         const responseData = data.data;
         
         if (!responseData || !responseData.success) {
-            this.updateBotStats('api_error');
             await this.sendMessage(sender, '❌ Gagal memproses konten Instagram');
             return;
         }
-
-        this.updateBotStats('api_success');
-        this.updateCommandStats('instagram');
-        
-        // TAMBAHKAN TRACKING DOWNLOAD (estimasi ukuran file)
-        const estimatedSize = 5 * 1024 * 1024; // 5MB estimasi untuk video Instagram
-        this.updateDownloadStats('instagram', 'video', estimatedSize);
 
         // Handle berbagai tipe konten Instagram
         if (responseData.type === 'video') {
@@ -1251,8 +1131,6 @@ async processStickerCreation(sender, message) {
 
     } catch (error) {
         console.error('Error processing Instagram download:', error);
-        this.updateBotStats('api_error');
-        this.updateBotStats('error');
         
         if (error.code === 'ECONNABORTED') {
             await this.sendMessage(sender, '❌ Timeout: Server terlalu lambat merespons');
@@ -1292,6 +1170,7 @@ async processStickerCreation(sender, message) {
             mimetype: 'video/mp4'
         });
 
+        this.updateDownloadStats('instagram', 'video', 0);
         console.log(`✅ Instagram video sent successfully to ${sender}`);
 
     } catch (error) {
@@ -1302,149 +1181,115 @@ async processStickerCreation(sender, message) {
 
 
     async processFacebookDownload(sender, url) {
-    try {
-        await this.sendMessage(sender, '⏳ Sedang memproses download...');
+        try {
+            await this.sendMessage(sender, '⏳ Sedang memproses download...');
 
-        const { data } = await axios.get(`${config.ferdev.apiUrl}/downloader/facebook`, {
-            params: {
-                link: url,
-                apikey: config.ferdev.apiKey,
+            const { data } = await axios.get(`${config.ferdev.apiUrl}/downloader/facebook`, {
+                params: {
+                    link: url,
+                    apikey: config.ferdev.apiKey,
+                }
+            });
+
+            if (!data || !data.success) {
+                await this.sendMessage(sender, '❌ Gagal mendownload video Facebook');
+                return;
             }
-        });
+            this.updateDownloadStats('facebook', 'video', 0);
 
-        if (!data || !data.success) {
-            this.updateBotStats('api_error');
-            await this.sendMessage(sender, '❌ Gagal mendownload video Facebook');
-            return;
+            const videoUrl = data.data.hd;
+            await this.sock.sendMessage(sender, {
+                video: { url: videoUrl },
+                caption: data?.data.title || 'Video Facebook',
+                mimetype: 'video/mp4'
+            });
+
+            await this.sendMessage(sender, '✅ Video Facebook berhasil didownload!');
+
+        } catch (error) {
+            console.error('Error processing Facebook download:', error);
+            await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
         }
-
-        this.updateBotStats('api_success');
-        this.updateBotStats('video');
-        this.updateCommandStats('facebook');
-        
-        // TAMBAHKAN TRACKING DOWNLOAD
-        const estimatedSize = 8 * 1024 * 1024; // 8MB estimasi untuk video Facebook
-        this.updateDownloadStats('facebook', 'video', estimatedSize);
-
-        const videoUrl = data.data.hd;
-        await this.sock.sendMessage(sender, {
-            video: { url: videoUrl },
-            caption: data?.data.title || 'Video Facebook',
-            mimetype: 'video/mp4'
-        });
-
-        await this.sendMessage(sender, '✅ Video Facebook berhasil didownload!');
-
-    } catch (error) {
-        console.error('Error processing Facebook download:', error);
-        this.updateBotStats('api_error');
-        this.updateBotStats('error');
-        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
     }
-}
 
     async processYTMP4Download(sender, url) {
-    try {
-        await this.sendMessage(sender, '⏳ Sedang memproses download...');
+        try {
+            await this.sendMessage(sender, '⏳ Sedang memproses download...');
 
-        const { data } = await axios.get(`${config.ferdev.apiUrl}/downloader/ytmp4`, {
-            params: {
-                link: url,
-                apikey: config.ferdev.apiKey,
+            const { data } = await axios.get(`${config.ferdev.apiUrl}/downloader/ytmp4`, {
+                params: {
+                    link: url,
+                    apikey: config.ferdev.apiKey,
+                }
+            });
+
+            if (!data || !data.success) {
+                await this.sendMessage(sender, '❌ Gagal mendownload video YouTube');
+                return;
             }
-        });
 
-        if (!data || !data.success) {
-            this.updateBotStats('api_error');
-            await this.sendMessage(sender, '❌ Gagal mendownload video YouTube');
-            return;
+            const videoUrl = data.data?.dlink || data.data?.video || data.data?.url || data.data?.download_url;
+
+            if (!videoUrl) {
+                await this.sendMessage(sender, '❌ Link video tidak ditemukan');
+                return;
+            }
+
+            await this.sock.sendMessage(sender, {
+                video: { url: videoUrl },
+                caption: data?.data.title || 'Video YouTube',
+                mimetype: 'video/mp4'
+            });
+
+            this.updateDownloadStats('ytmp4', 'video', 0);
+            await this.sendMessage(sender, '✅ Video YouTube berhasil didownload!');
+
+        } catch (error) {
+            console.error('Error processing YTMP4 download:', error);
+            await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
         }
-
-        const videoUrl = data.data?.dlink || data.data?.video || data.data?.url || data.data?.download_url;
-
-        if (!videoUrl) {
-            this.updateBotStats('api_error');
-            await this.sendMessage(sender, '❌ Link video tidak ditemukan');
-            return;
-        }
-
-        this.updateBotStats('api_success');
-        this.updateBotStats('video');
-        this.updateCommandStats('youtube');
-        
-        // TAMBAHKAN TRACKING DOWNLOAD
-        const estimatedSize = 15 * 1024 * 1024; // 15MB estimasi untuk video YouTube
-        this.updateDownloadStats('youtube', 'video', estimatedSize);
-
-        await this.sock.sendMessage(sender, {
-            video: { url: videoUrl },
-            caption: data?.data.title || 'Video YouTube',
-            mimetype: 'video/mp4'
-        });
-
-        await this.sendMessage(sender, '✅ Video YouTube berhasil didownload!');
-
-    } catch (error) {
-        console.error('Error processing YTMP4 download:', error);
-        this.updateBotStats('api_error');
-        this.updateBotStats('error');
-        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
     }
-}
-
 
     async processYTMP3Download(sender, url) {
-    try {
-        await this.sendMessage(sender, '⏳ Sedang memproses download...');
+        try {
+            await this.sendMessage(sender, '⏳ Sedang memproses download...');
 
-        const { data } = await axios.get(`${config.ferdev.apiUrl}/downloader/ytmp3`, {
-            params: {
-                link: url,
-                apikey: config.ferdev.apiKey,
+            const { data } = await axios.get(`${config.ferdev.apiUrl}/downloader/ytmp3`, {
+                params: {
+                    link: url,
+                    apikey: config.ferdev.apiKey,
+                }
+            });
+
+            if (!data || !data.success) {
+                await this.sendMessage(sender, '❌ Gagal mendownload audio YouTube');
+                return;
             }
-        });
 
-        if (!data || !data.success) {
-            this.updateBotStats('api_error');
-            await this.sendMessage(sender, '❌ Gagal mendownload audio YouTube');
-            return;
+            const audioUrl = data.data?.dlink || data.data?.audio || data.data?.url || data.data?.download_url;
+
+            if (!audioUrl) {
+                await this.sendMessage(sender, '❌ Link audio tidak ditemukan');
+                return;
+            }
+
+            const title = data.data?.title || 'Audio YouTube';
+
+            await this.sock.sendMessage(sender, {
+                audio: { url: audioUrl },
+                caption: title,
+                mimetype: 'audio/mp4',
+                ptt: false
+            });
+
+            this.updateDownloadStats('ytmp3', 'audio', 0);
+            await this.sendMessage(sender, '✅ Audio YouTube berhasil didownload!');
+
+        } catch (error) {
+            console.error('Error processing YTMP3 download:', error);
+            await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
         }
-
-        const audioUrl = data.data?.dlink || data.data?.audio || data.data?.url || data.data?.download_url;
-
-        if (!audioUrl) {
-            this.updateBotStats('api_error');
-            await this.sendMessage(sender, '❌ Link audio tidak ditemukan');
-            return;
-        }
-
-        this.updateBotStats('api_success');
-        this.updateBotStats('audio');
-        this.updateCommandStats('youtube');
-        
-        // TAMBAHKAN TRACKING DOWNLOAD
-        const estimatedSize = 5 * 1024 * 1024; // 5MB estimasi untuk audio YouTube
-        this.updateDownloadStats('youtube', 'audio', estimatedSize);
-
-        const title = data.data?.title || 'Audio YouTube';
-
-        await this.sock.sendMessage(sender, {
-            audio: { url: audioUrl },
-            caption: title,
-            mimetype: 'audio/mp4',
-            ptt: false
-        });
-
-        await this.sendMessage(sender, '✅ Audio YouTube berhasil didownload!');
-
-    } catch (error) {
-        console.error('Error processing YTMP3 download:', error);
-        this.updateBotStats('api_error');
-        this.updateBotStats('error');
-        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
     }
-}
-
 
     async downloadMedia(message) {
         try {
@@ -1597,8 +1442,15 @@ async processStickerCreation(sender, message) {
     }
 
     resetBotStats() {
+    // Update persistent uptime saat reset
+    const currentTime = Date.now();
+    const sessionUptime = currentTime - this.persistentUptime.lastRefresh;
+    this.persistentUptime.totalUptime += sessionUptime;
+    this.persistentUptime.lastRefresh = currentTime;
+    
+    // Reset bot stats
     this.botStats = {
-        startTime: this.botStats.startTime, // PERTAHANKAN startTime asli
+        startTime: Date.now(),
         totalMessages: 0,
         commandsProcessed: 0,
         apiSuccess: 0,
@@ -1609,7 +1461,7 @@ async processStickerCreation(sender, message) {
         audioDownloads: 0,
         aiQueries: 0,
         errors: 0,
-        lastReset: Date.now(), // Update lastReset
+        lastReset: Date.now(),
         commandStats: {
             tiktok: 0,
             instagram: 0,
@@ -1627,24 +1479,27 @@ async processStickerCreation(sender, message) {
         }
     };
     
-    // Reset download stats juga
+    // Reset download stats
     this.downloadStats = {
         totalFiles: 0,
         totalSize: 0,
-        filesByType: {
-            video: 0,
-            audio: 0,
-            image: 0,
-            sticker: 0
+        byType: {
+            video: { count: 0, size: 0 },
+            audio: { count: 0, size: 0 },
+            image: { count: 0, size: 0 },
+            sticker: { count: 0, size: 0 }
         },
-        platformStats: {
+        bySource: {
             tiktok: { count: 0, size: 0 },
             instagram: { count: 0, size: 0 },
             facebook: { count: 0, size: 0 },
             youtube: { count: 0, size: 0 },
-            sticker: { count: 0, size: 0 }
+            ytmp3: { count: 0, size: 0 },
+            ytmp4: { count: 0, size: 0 }
         }
     };
+    
+    console.log('🔄 Bot stats telah direset');
 }
 }
 
