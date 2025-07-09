@@ -15,7 +15,7 @@ const QuoteGenerator = require('../handlers/quote');
 const axios = require('axios');
 
 class WhatsAppClient {
-    constructor() {
+     constructor() {
         this.sock = null;
         this.userStates = new Map();
         this.aiHandler = new AIHandler();
@@ -27,6 +27,38 @@ class WhatsAppClient {
         this.userLastMessage = new Map();
         this.userWelcomeCount = new Map();
         this.processingUsers = new Set();
+
+        // =================== TAMBAHAN UNTUK STATS BOT ===================
+        this.botStats = {
+            startTime: Date.now(),
+            totalMessages: 0,
+            commandsProcessed: 0,
+            apiSuccess: 0,
+            apiErrors: 0,
+            mediaProcessed: 0,
+            stickersCreated: 0,
+            videoDownloads: 0,
+            audioDownloads: 0,
+            aiQueries: 0,
+            errors: 0,
+            lastReset: Date.now(),
+            commandStats: {
+                tiktok: 0,
+                instagram: 0,
+                facebook: 0,
+                youtube: 0,
+                sticker: 0,
+                ai: 0,
+                quote: 0,
+                pantun: 0,
+                motivasi: 0,
+                brat: 0,
+                help: 0,
+                info: 0,
+                ibot: 0
+            }
+        };
+
         this.setupCleanupInterval();
     }
 
@@ -139,12 +171,15 @@ class WhatsAppClient {
     }
 
     async handleMessage(m) {
-        const messages = m.messages;
+         const messages = m.messages;
 
         if (!messages || messages.length === 0) return;
 
         for (const message of messages) {
             if (message.key.fromMe) continue;
+
+            // UPDATE STATS - TAMBAHKAN INI
+            this.updateBotStats('message');
 
             const sender = message.key.remoteJid;
             const messageKey = message.key.id;
@@ -187,7 +222,9 @@ class WhatsAppClient {
 
             // PRIORITAS PERTAMA: Cek gambar dengan caption command
             if (message.message?.imageMessage || message.message?.videoMessage) {
-                const lowerCaption = caption.toLowerCase().trim();
+                const lowerCaption = caption.toLowerCase().trim(); if (message.message?.imageMessage || message.message?.videoMessage) {
+                this.updateBotStats('media');
+            }
 
                 // Command: !tohitam
                 if (lowerCaption.includes('!tohitam') || lowerCaption.includes('!hitamkan')) {
@@ -232,11 +269,85 @@ class WhatsAppClient {
         }
     }
 
+    async handleIBotCommand(sender) {
+        try {
+            const uptime = this.getUptime();
+            const memoryUsage = process.memoryUsage();
+            const activeUsers = this.processingUsers.size;
+            const totalUsers = this.userStates.size;
+
+            // Format uptime
+            const uptimeString = `${uptime.days}d ${uptime.hours}h ${uptime.minutes}m ${uptime.seconds}s`;
+
+            // Format memory usage
+            const formatBytes = (bytes) => {
+                return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+            };
+
+            // Success rate
+            const totalApi = this.botStats.apiSuccess + this.botStats.apiErrors;
+            const successRate = totalApi > 0 ? ((this.botStats.apiSuccess / totalApi) * 100).toFixed(1) : '0.0';
+
+            // Most used commands
+            const sortedCommands = Object.entries(this.botStats.commandStats)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5);
+
+            const commandsText = sortedCommands.map(([cmd, count]) => `• ${cmd}: ${count}`).join('\n');
+
+            const statsMessage = `🤖 *IGIMONSAN BOT - STATUS REALTIME*\n\n` +
+                `⏱️ *Uptime:* ${uptimeString}\n` +
+                `📊 *Statistik Pesan:*\n` +
+                `• Total Pesan: ${this.botStats.totalMessages}\n` +
+                `• Command Diproses: ${this.botStats.commandsProcessed}\n` +
+                `• Media Diproses: ${this.botStats.mediaProcessed}\n\n` +
+                `📈 *Statistik API:*\n` +
+                `• API Berhasil: ${this.botStats.apiSuccess}\n` +
+                `• API Gagal: ${this.botStats.apiErrors}\n` +
+                `• Success Rate: ${successRate}%\n\n` +
+                `🎯 *Aktivitas:*\n` +
+                `• Sticker Dibuat: ${this.botStats.stickersCreated}\n` +
+                `• Video Download: ${this.botStats.videoDownloads}\n` +
+                `• Audio Download: ${this.botStats.audioDownloads}\n` +
+                `• AI Queries: ${this.botStats.aiQueries}\n\n` +
+                `👥 *Pengguna:*\n` +
+                `• Total Users: ${totalUsers}\n` +
+                `• Sedang Aktif: ${activeUsers}\n\n` +
+                `🔧 *Sistem:*\n` +
+                `• Memory Used: ${formatBytes(memoryUsage.heapUsed)}\n` +
+                `• Memory Total: ${formatBytes(memoryUsage.heapTotal)}\n` +
+                `• Errors: ${this.botStats.errors}\n\n` +
+                `📋 *Top Commands:*\n${commandsText}\n\n` +
+                `🕐 *Last Reset:* ${new Date(this.botStats.lastReset).toLocaleString('id-ID')}\n` +
+                `💾 *Bot Version:* 2.0.0\n` +
+                `🔄 *Status:* Online & Healthy`;
+
+            await this.sendMessage(sender, statsMessage);
+
+        } catch (error) {
+            console.error('Error handling ibot command:', error);
+            this.updateBotStats('error');
+            await this.sendMessage(sender, '❌ Terjadi kesalahan saat mengambil info bot');
+        }
+    }
+
     async processMessage(sender, text, message, isGroupChat = false) {
         const lowerText = text.toLowerCase().trim();
 
         try {
             // =================== COMMAND SYSTEM ===================
+
+             // UPDATE STATS UNTUK COMMAND - TAMBAHKAN INI
+            if (lowerText.startsWith('!')) {
+                this.updateBotStats('command');
+            }
+
+            // =================== TAMBAHKAN COMMAND !ibot ===================
+            if (lowerText === '!ibot') {
+                this.updateCommandStats('ibot');
+                await this.handleIBotCommand(sender);
+                return;
+            }
 
             // Command: !help atau !menu
             if (lowerText === '!help' || lowerText === '!menu') {
@@ -352,7 +463,7 @@ class WhatsAppClient {
 
     // =================== COMMAND HANDLERS ===================
 
-    async sendHelpMessage(sender) {
+     async sendHelpMessage(sender) {
         const helpMessage = `🤖 *DAFTAR PERINTAH YANG TERSEDIA*\n\n` +
             `📱 *Media Downloader:*\n` +
             `• !tiktok [link] - Download video TikTok\n` +
@@ -370,7 +481,7 @@ class WhatsAppClient {
             `• !hitamkan - Penghitaman (kirim gambar)\n\n` +
             `ℹ️ *Info:*\n` +
             `• !help - Tampilkan pesan ini\n` +
-            `• !info - Info bot\n\n` +
+            `• !info - Info bot\n` +
             `📝 *Cara Penggunaan:*\n` +
             `Contoh: !tiktok https://vt.tiktok.com/...\n` +
             `Contoh: !ai Siapa jokowi`;
@@ -616,17 +727,23 @@ class WhatsAppClient {
             }
 
             // Validasi response tidak kosong
-            if (!aiResponse || aiResponse.trim() === '') {
+            if (aiResponse && aiResponse.trim() !== '') {
+                this.updateBotStats('api_success'); // TAMBAHKAN INI
+                this.updateBotStats('ai'); // TAMBAHKAN INI
+                
+                return {
+                    success: true,
+                    message: `🤖 *ChatGPT Response*\n\n${aiResponse}`
+                };
+            } else {
+                this.updateBotStats('api_error'); // TAMBAHKAN INI
                 throw new Error('Empty response from AI');
             }
 
-            return {
-                success: true,
-                message: `🤖 *ChatGPT Response*\n\n${aiResponse}`
-            };
-
         } catch (error) {
             console.error('Error processing direct AI question:', error);
+            this.updateBotStats('api_error'); // TAMBAHKAN INI
+            this.updateBotStats('error'); // TAMBAHKAN INI
             console.error('Error details:', {
                 message: error.message,
                 response: error.response?.data,
@@ -707,6 +824,58 @@ class WhatsAppClient {
 
     // =================== PROCESSING METHODS ===================
 
+    updateBotStats(action, success = true) {
+        switch (action) {
+            case 'message':
+                this.botStats.totalMessages++;
+                break;
+            case 'command':
+                this.botStats.commandsProcessed++;
+                break;
+            case 'api_success':
+                this.botStats.apiSuccess++;
+                break;
+            case 'api_error':
+                this.botStats.apiErrors++;
+                break;
+            case 'media':
+                this.botStats.mediaProcessed++;
+                break;
+            case 'sticker':
+                this.botStats.stickersCreated++;
+                break;
+            case 'video':
+                this.botStats.videoDownloads++;
+                break;
+            case 'audio':
+                this.botStats.audioDownloads++;
+                break;
+            case 'ai':
+                this.botStats.aiQueries++;
+                break;
+            case 'error':
+                this.botStats.errors++;
+                break;
+        }
+    }
+
+    updateCommandStats(command) {
+        if (this.botStats.commandStats.hasOwnProperty(command)) {
+            this.botStats.commandStats[command]++;
+        }
+    }
+
+    getUptime() {
+        const uptime = Date.now() - this.botStats.startTime;
+        const days = Math.floor(uptime / (24 * 60 * 60 * 1000));
+        const hours = Math.floor((uptime % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+        const minutes = Math.floor((uptime % (60 * 60 * 1000)) / (60 * 1000));
+        const seconds = Math.floor((uptime % (60 * 1000)) / 1000);
+
+        return { days, hours, minutes, seconds, totalMs: uptime };
+    }
+
+
     async processQuoteGeneration(sender, type) {
     try {
         await this.sendMessage(sender, '⏳ Sedang mengambil konten...');
@@ -735,6 +904,9 @@ class WhatsAppClient {
             const result = await downloader.processDownload(url, 'Video TikTok');
 
             if (result.success) {
+                this.updateBotStats('api_success'); // TAMBAHKAN INI
+                this.updateBotStats('video'); // TAMBAHKAN INI
+                
                 await this.sendVideo(sender, result.filePath, result.title, result.author);
 
                 setTimeout(async () => {
@@ -752,6 +924,8 @@ class WhatsAppClient {
 
         } catch (error) {
             console.error('Error processing TikTok download:', error);
+            this.updateBotStats('api_error'); 
+            this.updateBotStats('error');
             await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
         }
     }
@@ -763,6 +937,7 @@ class WhatsAppClient {
             const mediaData = await this.downloadMedia(message);
 
             if (!mediaData) {
+                this.updateBotStats('api_error'); // TAMBAHKAN INI
                 await this.sendMessage(sender, '❌ Gagal mengunduh media');
                 return;
             }
@@ -780,8 +955,8 @@ class WhatsAppClient {
             const result = await this.stickerMaker.createSticker(mediaData.buffer, mediaData.mimetype);
 
             if (result.success) {
-                await this.sendSticker(sender, result.filePath);
-
+                this.updateBotStats('api_success'); // TAMBAHKAN INI
+                this.updateBotStats('sticker');
                 // Cleanup file setelah 60 detik
                 setTimeout(async () => {
                     try {
@@ -796,12 +971,15 @@ class WhatsAppClient {
                 console.log(`✅ Sticker created successfully for ${sender}`);
 
             } else {
+                this.updateBotStats('api_error'); // TAMBAHKAN INI
                 await this.sendMessage(sender, result.error || '❌ Gagal membuat sticker');
                 console.error('Sticker creation failed:', result.error);
             }
 
         } catch (error) {
             console.error('Error processing sticker creation:', error);
+            this.updateBotStats('api_error'); // TAMBAHKAN INI
+            this.updateBotStats('error'); // TAMBAHKAN INI
             await this.sendMessage(sender, '❌ Terjadi kesalahan saat membuat sticker');
         }
     }
@@ -1132,17 +1310,54 @@ class WhatsAppClient {
         }
     }
 
-    getStats() {
+   getStats() {
         const aiStats = this.aiHandler.aiHandler?.getStats() || {};
         const activeSessions = this.aiHandler.getActiveSessions().length;
         const quoteStats = this.quoteGenerator.getStats();
+        const uptime = this.getUptime();
 
         return {
+            botStats: this.botStats,
+            uptime: uptime,
             totalUsers: this.userStates.size,
+            activeUsers: this.processingUsers.size,
             activeAISessions: activeSessions,
             aiStats: aiStats,
             supportedStickerFormats: this.stickerMaker.constructor.getSupportedFormats(),
-            quoteStats: quoteStats
+            quoteStats: quoteStats,
+            memoryUsage: process.memoryUsage()
+        };
+    }
+
+    resetBotStats() {
+        this.botStats = {
+            startTime: Date.now(),
+            totalMessages: 0,
+            commandsProcessed: 0,
+            apiSuccess: 0,
+            apiErrors: 0,
+            mediaProcessed: 0,
+            stickersCreated: 0,
+            videoDownloads: 0,
+            audioDownloads: 0,
+            aiQueries: 0,
+            errors: 0,
+            lastReset: Date.now(),
+            commandStats: {
+                tiktok: 0,
+                instagram: 0,
+                facebook: 0,
+                youtube: 0,
+                sticker: 0,
+                ai: 0,
+                quote: 0,
+                pantun: 0,
+                motivasi: 0,
+                brat: 0,
+                help: 0,
+                info: 0,
+                ibot: 0
+            }
         };
     }
 }
