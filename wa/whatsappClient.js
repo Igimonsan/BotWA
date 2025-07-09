@@ -15,52 +15,37 @@ const QuoteGenerator = require('../handlers/quote');
 const axios = require('axios');
 
 class WhatsAppClient {
-     constructor() {
-        this.sock = null;
-        this.userStates = new Map();
-        this.aiHandler = new AIHandler();
-        this.stickerMaker = new StickerMaker();
-        this.quoteGenerator = new QuoteGenerator();
+    constructor() {
+    this.sock = null;
+    this.userStates = new Map();
+    this.aiHandler = new AIHandler();
+    this.stickerMaker = new StickerMaker();
+    this.quoteGenerator = new QuoteGenerator();
 
-        // ANTI-SPAM SYSTEM
-        this.messageQueue = new Map();
-        this.userLastMessage = new Map();
-        this.userWelcomeCount = new Map();
-        this.processingUsers = new Set();
-
-        // =================== TAMBAHAN UNTUK STATS BOT ===================
-        this.botStats = {
-            startTime: Date.now(),
-            totalMessages: 0,
-            commandsProcessed: 0,
-            apiSuccess: 0,
-            apiErrors: 0,
-            mediaProcessed: 0,
-            stickersCreated: 0,
-            videoDownloads: 0,
-            audioDownloads: 0,
-            aiQueries: 0,
-            errors: 0,
-            lastReset: Date.now(),
-            commandStats: {
-                tiktok: 0,
-                instagram: 0,
-                facebook: 0,
-                youtube: 0,
-                sticker: 0,
-                ai: 0,
-                quote: 0,
-                pantun: 0,
-                motivasi: 0,
-                brat: 0,
-                help: 0,
-                info: 0,
-                ibot: 0
-            }
-        };
-
-        this.setupCleanupInterval();
-    }
+    // ANTI-SPAM SYSTEM
+    this.messageQueue = new Map();
+    this.userLastMessage = new Map();
+    this.userWelcomeCount = new Map();
+    this.processingUsers = new Set();
+    
+    // STATISTIK BOT - TAMBAHAN BARU
+    this.botStats = {
+        startTime: Date.now(),
+        totalMessages: 0,
+        totalCommands: 0,
+        downloadSuccess: 0,
+        downloadFailed: 0,
+        mediaProcessed: 0,
+        stickersCreated: 0,
+        audioDownloaded: 0,
+        videoDownloaded: 0,
+        activeUsers: new Set(),
+        commandUsage: new Map(),
+        lastActivity: Date.now()
+    };
+    
+    this.setupCleanupInterval();
+}
 
     getRandomDelay() {
         return Math.floor(Math.random() * 1000) + 1000;
@@ -69,6 +54,65 @@ class WhatsAppClient {
     sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
+
+    // =================== STATISTIK METHODS ===================
+
+updateBotStats(action, value = 1) {
+    switch(action) {
+        case 'message':
+            this.botStats.totalMessages += value;
+            break;
+        case 'command':
+            this.botStats.totalCommands += value;
+            break;
+        case 'download_success':
+            this.botStats.downloadSuccess += value;
+            break;
+        case 'download_failed':
+            this.botStats.downloadFailed += value;
+            break;
+        case 'media_processed':
+            this.botStats.mediaProcessed += value;
+            break;
+        case 'sticker_created':
+            this.botStats.stickersCreated += value;
+            break;
+        case 'audio_downloaded':
+            this.botStats.audioDownloaded += value;
+            break;
+        case 'video_downloaded':
+            this.botStats.videoDownloaded += value;
+            break;
+    }
+    this.botStats.lastActivity = Date.now();
+}
+
+trackCommandUsage(command, sender) {
+    // Track command usage
+    const count = this.botStats.commandUsage.get(command) || 0;
+    this.botStats.commandUsage.set(command, count + 1);
+    
+    // Track active user
+    this.botStats.activeUsers.add(sender);
+}
+
+getTopCommands(limit = 5) {
+    const sorted = Array.from(this.botStats.commandUsage.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit);
+    
+    return sorted.map(([command, count]) => ({ command, count }));
+}
+
+getUptime() {
+    const uptimeMs = Date.now() - this.botStats.startTime;
+    const days = Math.floor(uptimeMs / (24 * 60 * 60 * 1000));
+    const hours = Math.floor((uptimeMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+    const minutes = Math.floor((uptimeMs % (60 * 60 * 1000)) / (60 * 1000));
+    const seconds = Math.floor((uptimeMs % (60 * 1000)) / 1000);
+    
+    return { days, hours, minutes, seconds, totalMs: uptimeMs };
+}
 
     // ANTI-SPAM: Cek apakah pesan duplicate
     isDuplicateMessage(sender, messageKey, text) {
@@ -171,24 +215,24 @@ class WhatsAppClient {
     }
 
     async handleMessage(m) {
-         const messages = m.messages;
+    const messages = m.messages;
 
-        if (!messages || messages.length === 0) return;
+    if (!messages || messages.length === 0) return;
 
-        for (const message of messages) {
-            if (message.key.fromMe) continue;
+    for (const message of messages) {
+        if (message.key.fromMe) continue;
 
-            // UPDATE STATS - TAMBAHKAN INI
-            this.updateBotStats('message');
+        const sender = message.key.remoteJid;
+        const messageKey = message.key.id;
+        const text = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
 
-            const sender = message.key.remoteJid;
-            const messageKey = message.key.id;
-            const text = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
-
-            // Ambil caption dari gambar/video jika ada
-            const imageCaption = message.message?.imageMessage?.caption || '';
-            const videoCaption = message.message?.videoMessage?.caption || '';
-            const caption = imageCaption || videoCaption || '';
+        // TRACKING STATISTIK - TAMBAHAN BARU
+        this.updateBotStats('message');
+        
+        // Ambil caption dari gambar/video jika ada
+        const imageCaption = message.message?.imageMessage?.caption || '';
+        const videoCaption = message.message?.videoMessage?.caption || '';
+        const caption = imageCaption || videoCaption || '';
 
             // =================== VALIDASI GRUP/CHAT PRIBADI ===================
 
@@ -222,9 +266,7 @@ class WhatsAppClient {
 
             // PRIORITAS PERTAMA: Cek gambar dengan caption command
             if (message.message?.imageMessage || message.message?.videoMessage) {
-                const lowerCaption = caption.toLowerCase().trim(); if (message.message?.imageMessage || message.message?.videoMessage) {
-                this.updateBotStats('media');
-            }
+                const lowerCaption = caption.toLowerCase().trim();
 
                 // Command: !tohitam
                 if (lowerCaption.includes('!tohitam') || lowerCaption.includes('!hitamkan')) {
@@ -269,85 +311,17 @@ class WhatsAppClient {
         }
     }
 
-    async handleIBotCommand(sender) {
-        try {
-            const uptime = this.getUptime();
-            const memoryUsage = process.memoryUsage();
-            const activeUsers = this.processingUsers.size;
-            const totalUsers = this.userStates.size;
-
-            // Format uptime
-            const uptimeString = `${uptime.days}d ${uptime.hours}h ${uptime.minutes}m ${uptime.seconds}s`;
-
-            // Format memory usage
-            const formatBytes = (bytes) => {
-                return (bytes / 1024 / 1024).toFixed(2) + ' MB';
-            };
-
-            // Success rate
-            const totalApi = this.botStats.apiSuccess + this.botStats.apiErrors;
-            const successRate = totalApi > 0 ? ((this.botStats.apiSuccess / totalApi) * 100).toFixed(1) : '0.0';
-
-            // Most used commands
-            const sortedCommands = Object.entries(this.botStats.commandStats)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 5);
-
-            const commandsText = sortedCommands.map(([cmd, count]) => `• ${cmd}: ${count}`).join('\n');
-
-            const statsMessage = `🤖 *IGIMONSAN BOT - STATUS REALTIME*\n\n` +
-                `⏱️ *Uptime:* ${uptimeString}\n` +
-                `📊 *Statistik Pesan:*\n` +
-                `• Total Pesan: ${this.botStats.totalMessages}\n` +
-                `• Command Diproses: ${this.botStats.commandsProcessed}\n` +
-                `• Media Diproses: ${this.botStats.mediaProcessed}\n\n` +
-                `📈 *Statistik API:*\n` +
-                `• API Berhasil: ${this.botStats.apiSuccess}\n` +
-                `• API Gagal: ${this.botStats.apiErrors}\n` +
-                `• Success Rate: ${successRate}%\n\n` +
-                `🎯 *Aktivitas:*\n` +
-                `• Sticker Dibuat: ${this.botStats.stickersCreated}\n` +
-                `• Video Download: ${this.botStats.videoDownloads}\n` +
-                `• Audio Download: ${this.botStats.audioDownloads}\n` +
-                `• AI Queries: ${this.botStats.aiQueries}\n\n` +
-                `👥 *Pengguna:*\n` +
-                `• Total Users: ${totalUsers}\n` +
-                `• Sedang Aktif: ${activeUsers}\n\n` +
-                `🔧 *Sistem:*\n` +
-                `• Memory Used: ${formatBytes(memoryUsage.heapUsed)}\n` +
-                `• Memory Total: ${formatBytes(memoryUsage.heapTotal)}\n` +
-                `• Errors: ${this.botStats.errors}\n\n` +
-                `📋 *Top Commands:*\n${commandsText}\n\n` +
-                `🕐 *Last Reset:* ${new Date(this.botStats.lastReset).toLocaleString('id-ID')}\n` +
-                `💾 *Bot Version:* 2.0.0\n` +
-                `🔄 *Status:* Online & Healthy`;
-
-            await this.sendMessage(sender, statsMessage);
-
-        } catch (error) {
-            console.error('Error handling ibot command:', error);
-            this.updateBotStats('error');
-            await this.sendMessage(sender, '❌ Terjadi kesalahan saat mengambil info bot');
-        }
-    }
-
     async processMessage(sender, text, message, isGroupChat = false) {
         const lowerText = text.toLowerCase().trim();
 
         try {
             // =================== COMMAND SYSTEM ===================
 
-             // UPDATE STATS UNTUK COMMAND - TAMBAHKAN INI
             if (lowerText.startsWith('!')) {
-                this.updateBotStats('command');
-            }
-
-            // =================== TAMBAHKAN COMMAND !ibot ===================
-            if (lowerText === '!ibot') {
-                this.updateCommandStats('ibot');
-                await this.handleIBotCommand(sender);
-                return;
-            }
+            this.updateBotStats('command');
+            const command = lowerText.split(' ')[0];
+            this.trackCommandUsage(command, sender);
+        }
 
             // Command: !help atau !menu
             if (lowerText === '!help' || lowerText === '!menu') {
@@ -361,6 +335,11 @@ class WhatsAppClient {
                 await this.handleTikTokCommand(sender, url);
                 return;
             }
+
+            if (lowerText === '!ibot') {
+            await this.sendBotStatsMessage(sender);
+            return;
+        }
 
             // Command: !sticker (dengan media)
             if (lowerText === '!sticker') {
@@ -461,34 +440,72 @@ class WhatsAppClient {
         }
     }
 
+    async sendBotStatsMessage(sender) {
+    try {
+        const uptime = this.getUptime();
+        const topCommands = this.getTopCommands();
+        const activeUsers = this.botStats.activeUsers.size;
+        const totalUsers = this.userStates.size;
+
+        const uptimeStr = `${uptime.days}d ${uptime.hours}h ${uptime.minutes}m ${uptime.seconds}s`;
+        
+        const topCommandsStr = topCommands.length > 0 
+            ? topCommands.map((cmd, index) => `${index + 1}. ${cmd.command} (${cmd.count}x)`).join('\n')
+            : 'Belum ada data';
+
+        const statsMessage = `🤖 *INFORMASI BOT REAL-TIME*\n\n` +
+            `⏱️ *Uptime:* ${uptimeStr}\n` +
+            `📊 *Total Pesan:* ${this.botStats.totalMessages}\n` +
+            `⚡ *Command Diproses:* ${this.botStats.totalCommands}\n\n` +
+            `📥 *Download Statistics:*\n` +
+            `✅ Berhasil: ${this.botStats.downloadSuccess}\n` +
+            `❌ Gagal: ${this.botStats.downloadFailed}\n` +
+            `🎬 Video: ${this.botStats.videoDownloaded}\n` +
+            `🎵 Audio: ${this.botStats.audioDownloaded}\n\n` +
+            `🎨 *Media Processing:*\n` +
+            `📁 Media Diproses: ${this.botStats.mediaProcessed}\n` +
+            `🎭 Sticker Dibuat: ${this.botStats.stickersCreated}\n\n` +
+            `👥 *User Statistics:*\n` +
+            `👤 Total Pengguna: ${totalUsers}\n` +
+            `🟢 Pengguna Aktif: ${activeUsers}\n\n` +
+            `🏆 *Top Commands:*\n${topCommandsStr}\n\n` +
+            `📊 Status: Online dan Berjalan Normal`;
+
+        await this.sendMessage(sender, statsMessage);
+    } catch (error) {
+        console.error('Error sending bot stats:', error);
+        await this.sendMessage(sender, "❌ Terjadi kesalahan saat mengambil statistik bot");
+    }
+}
+
     // =================== COMMAND HANDLERS ===================
 
-     async sendHelpMessage(sender) {
-        const helpMessage = `🤖 *DAFTAR PERINTAH YANG TERSEDIA*\n\n` +
-            `📱 *Media Downloader:*\n` +
-            `• !tiktok [link] - Download video TikTok\n` +
-            `• !fb [link] - Download video Facebook\n` +
-            `• !ytmp4 [link] - Download video YouTube\n` +
-            `• !ig [link] - Download video Instagram\n` +
-            `• !ytmp3 [link] - Download audio YouTube\n\n` +
-            `🎨 *Tools:*\n` +
-            `• !sticker - Buat sticker (kirim gambar)\n` +
-            `• !brats - Buat sticker dari teks\n` +
-            `• !quote - Quote random\n` +
-            `• !pantun - Pantun random\n` +
-            `• !motivasi - Motivasi random\n` +
-            `• !ai [pertanyaan] - Chat dengan AI\n` +
-            `• !hitamkan - Penghitaman (kirim gambar)\n\n` +
-            `ℹ️ *Info:*\n` +
-            `• !help - Tampilkan pesan ini\n` +
-            `• !info - Info bot\n` +
-            `• !ibot - Info bot realtime\n\n` + // TAMBAHKAN INI
-            `📝 *Cara Penggunaan:*\n` +
-            `Contoh: !tiktok https://vt.tiktok.com/...\n` +
-            `Contoh: !ai Siapa jokowi`;
+    async sendHelpMessage(sender) {
+    const helpMessage = `🤖 *DAFTAR PERINTAH YANG TERSEDIA*\n\n` +
+        `📱 *Media Downloader:*\n` +
+        `• !tiktok [link] - Download video TikTok\n` +
+        `• !fb [link] - Download video Facebook\n` +
+        `• !ytmp4 [link] - Download video YouTube\n` +
+        `• !ig [link] - Download video Instagram\n` +
+        `• !ytmp3 [link] - Download audio YouTube\n\n` +
+        `🎨 *Tools:*\n` +
+        `• !sticker - Buat sticker (kirim gambar)\n` +
+        `• !brats - Buat sticker dari teks\n` +
+        `• !quote - Quote random\n` +
+        `• !pantun - Pantun random\n` +
+        `• !motivasi - Motivasi random\n` +
+        `• !ai [pertanyaan] - Chat dengan AI\n` +
+        `• !hitamkan - Penghitaman (kirim gambar)\n\n` +
+        `ℹ️ *Info:*\n` +
+        `• !help - Tampilkan pesan ini\n` +
+        `• !info - Info bot\n` +
+        `• !ibot - Statistik bot real-time\n\n` + // TAMBAHAN BARU
+        `📝 *Cara Penggunaan:*\n` +
+        `Contoh: !tiktok https://vt.tiktok.com/...\n` +
+        `Contoh: !ai Siapa jokowi`;
 
-        await this.sendMessage(sender, helpMessage);
-    }
+    await this.sendMessage(sender, helpMessage);
+}
     async handleTikTokCommand(sender, url) {
         if (!url) {
             await this.sendMessage(sender,
@@ -728,23 +745,17 @@ class WhatsAppClient {
             }
 
             // Validasi response tidak kosong
-            if (aiResponse && aiResponse.trim() !== '') {
-                this.updateBotStats('api_success'); // TAMBAHKAN INI
-                this.updateBotStats('ai'); // TAMBAHKAN INI
-                
-                return {
-                    success: true,
-                    message: `🤖 *ChatGPT Response*\n\n${aiResponse}`
-                };
-            } else {
-                this.updateBotStats('api_error'); // TAMBAHKAN INI
+            if (!aiResponse || aiResponse.trim() === '') {
                 throw new Error('Empty response from AI');
             }
 
+            return {
+                success: true,
+                message: `🤖 *ChatGPT Response*\n\n${aiResponse}`
+            };
+
         } catch (error) {
             console.error('Error processing direct AI question:', error);
-            this.updateBotStats('api_error'); // TAMBAHKAN INI
-            this.updateBotStats('error'); // TAMBAHKAN INI
             console.error('Error details:', {
                 message: error.message,
                 response: error.response?.data,
@@ -825,58 +836,6 @@ class WhatsAppClient {
 
     // =================== PROCESSING METHODS ===================
 
-    updateBotStats(action, success = true) {
-        switch (action) {
-            case 'message':
-                this.botStats.totalMessages++;
-                break;
-            case 'command':
-                this.botStats.commandsProcessed++;
-                break;
-            case 'api_success':
-                this.botStats.apiSuccess++;
-                break;
-            case 'api_error':
-                this.botStats.apiErrors++;
-                break;
-            case 'media':
-                this.botStats.mediaProcessed++;
-                break;
-            case 'sticker':
-                this.botStats.stickersCreated++;
-                break;
-            case 'video':
-                this.botStats.videoDownloads++;
-                break;
-            case 'audio':
-                this.botStats.audioDownloads++;
-                break;
-            case 'ai':
-                this.botStats.aiQueries++;
-                break;
-            case 'error':
-                this.botStats.errors++;
-                break;
-        }
-    }
-
-    updateCommandStats(command) {
-        if (this.botStats.commandStats.hasOwnProperty(command)) {
-            this.botStats.commandStats[command]++;
-        }
-    }
-
-    getUptime() {
-        const uptime = Date.now() - this.botStats.startTime;
-        const days = Math.floor(uptime / (24 * 60 * 60 * 1000));
-        const hours = Math.floor((uptime % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-        const minutes = Math.floor((uptime % (60 * 60 * 1000)) / (60 * 1000));
-        const seconds = Math.floor((uptime % (60 * 1000)) / 1000);
-
-        return { days, hours, minutes, seconds, totalMs: uptime };
-    }
-
-
     async processQuoteGeneration(sender, type) {
     try {
         await this.sendMessage(sender, '⏳ Sedang mengambil konten...');
@@ -905,9 +864,8 @@ class WhatsAppClient {
             const result = await downloader.processDownload(url, 'Video TikTok');
 
             if (result.success) {
-                this.updateBotStats('api_success'); // TAMBAHKAN INI
-                this.updateBotStats('video'); // TAMBAHKAN INI
-                
+                this.updateBotStats('download_success');
+            this.updateBotStats('video_downloaded');
                 await this.sendVideo(sender, result.filePath, result.title, result.author);
 
                 setTimeout(async () => {
@@ -920,28 +878,30 @@ class WhatsAppClient {
                 }, 60000);
 
             } else {
+                this.updateBotStats('download_failed');
                 await this.sendMessage(sender, result.error || '❌ Gagal mendownload video');
             }
 
         } catch (error) {
             console.error('Error processing TikTok download:', error);
-            this.updateBotStats('api_error'); 
-            this.updateBotStats('error');
+            this.updateBotStats('download_failed'); // TAMBAHAN BARU
             await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
         }
     }
 
     async processStickerCreation(sender, message) {
         try {
-            await this.sendMessage(sender, '⏳ Sedang membuat sticker...');
+        await this.sendMessage(sender, '⏳ Sedang membuat sticker...');
 
-            const mediaData = await this.downloadMedia(message);
+        // TRACKING - TAMBAHAN BARU
+        this.updateBotStats('media_processed');
 
-            if (!mediaData) {
-                this.updateBotStats('api_error'); // TAMBAHKAN INI
-                await this.sendMessage(sender, '❌ Gagal mengunduh media');
-                return;
-            }
+        const mediaData = await this.downloadMedia(message);
+
+        if (!mediaData) {
+            await this.sendMessage(sender, '❌ Gagal mengunduh media');
+            return;
+        }
 
             console.log(`📁 Media downloaded: ${mediaData.mimetype}, size: ${mediaData.buffer.length} bytes`);
 
@@ -956,8 +916,10 @@ class WhatsAppClient {
             const result = await this.stickerMaker.createSticker(mediaData.buffer, mediaData.mimetype);
 
             if (result.success) {
-                this.updateBotStats('api_success'); // TAMBAHKAN INI
-                this.updateBotStats('sticker');
+                this.updateBotStats('sticker_created');
+
+            await this.sendSticker(sender, result.filePath);
+
                 // Cleanup file setelah 60 detik
                 setTimeout(async () => {
                     try {
@@ -972,18 +934,17 @@ class WhatsAppClient {
                 console.log(`✅ Sticker created successfully for ${sender}`);
 
             } else {
-                this.updateBotStats('api_error'); // TAMBAHKAN INI
                 await this.sendMessage(sender, result.error || '❌ Gagal membuat sticker');
                 console.error('Sticker creation failed:', result.error);
             }
 
         } catch (error) {
             console.error('Error processing sticker creation:', error);
-            this.updateBotStats('api_error'); // TAMBAHKAN INI
-            this.updateBotStats('error'); // TAMBAHKAN INI
             await this.sendMessage(sender, '❌ Terjadi kesalahan saat membuat sticker');
         }
     }
+
+    
 
     async processInstagramDownload(sender, url) {
     try {
@@ -1218,12 +1179,26 @@ class WhatsAppClient {
     // =================== UTILITY METHODS ===================
 
     setupCleanupInterval() {
-        setInterval(() => {
-            this.cleanupInactiveUsers();
-            this.aiHandler.cleanupInactiveSessions();
-            this.stickerMaker.cleanup();
-        }, 30 * 60 * 1000);
+    setInterval(() => {
+        this.cleanupInactiveUsers();
+        this.aiHandler.cleanupInactiveSessions();
+        this.stickerMaker.cleanup();
+        
+        // RESET STATISTIK HARIAN - TAMBAHAN BARU
+        this.resetDailyStats();
+    }, 30 * 60 * 1000);
+}
+
+resetDailyStats() {
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    
+    // Reset active users setiap 24 jam
+    if (now - this.botStats.lastActivity > oneDayMs) {
+        this.botStats.activeUsers.clear();
+        console.log('🔄 Daily stats reset: Active users cleared');
     }
+}
 
     cleanupInactiveUsers() {
         const now = Date.now();
@@ -1311,54 +1286,17 @@ class WhatsAppClient {
         }
     }
 
-   getStats() {
+    getStats() {
         const aiStats = this.aiHandler.aiHandler?.getStats() || {};
         const activeSessions = this.aiHandler.getActiveSessions().length;
         const quoteStats = this.quoteGenerator.getStats();
-        const uptime = this.getUptime();
 
         return {
-            botStats: this.botStats,
-            uptime: uptime,
             totalUsers: this.userStates.size,
-            activeUsers: this.processingUsers.size,
             activeAISessions: activeSessions,
             aiStats: aiStats,
             supportedStickerFormats: this.stickerMaker.constructor.getSupportedFormats(),
-            quoteStats: quoteStats,
-            memoryUsage: process.memoryUsage()
-        };
-    }
-
-    resetBotStats() {
-        this.botStats = {
-            startTime: Date.now(),
-            totalMessages: 0,
-            commandsProcessed: 0,
-            apiSuccess: 0,
-            apiErrors: 0,
-            mediaProcessed: 0,
-            stickersCreated: 0,
-            videoDownloads: 0,
-            audioDownloads: 0,
-            aiQueries: 0,
-            errors: 0,
-            lastReset: Date.now(),
-            commandStats: {
-                tiktok: 0,
-                instagram: 0,
-                facebook: 0,
-                youtube: 0,
-                sticker: 0,
-                ai: 0,
-                quote: 0,
-                pantun: 0,
-                motivasi: 0,
-                brat: 0,
-                help: 0,
-                info: 0,
-                ibot: 0
-            }
+            quoteStats: quoteStats
         };
     }
 }
