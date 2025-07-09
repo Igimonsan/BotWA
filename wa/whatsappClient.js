@@ -598,6 +598,110 @@ class WhatsAppClient {
         await this.processStickerCreation(sender, message);
     }
 
+    async processTikTokDownload(sender, url) {
+    try {
+        await this.sendMessage(sender, '⏳ Sedang memproses download...');
+
+        const TikTokDownloader = require('../tiktok/tiktokDownloader');
+        const downloader = new TikTokDownloader();
+
+        const result = await downloader.processDownload(url, 'Video TikTok');
+
+        if (result.success) {
+            this.updateBotStats('api_success');
+            this.updateBotStats('video');
+            this.updateCommandStats('tiktok');
+            
+            // TAMBAHKAN TRACKING DOWNLOAD
+            const fileStats = await fs.stat(result.filePath);
+            this.updateDownloadStats('tiktok', 'video', fileStats.size);
+            
+            await this.sendVideo(sender, result.filePath, result.title, result.author);
+
+            setTimeout(async () => {
+                try {
+                    await fs.remove(result.filePath);
+                    console.log(`File ${result.fileName} telah dihapus`);
+                } catch (err) {
+                    console.error('Error deleting file:', err);
+                }
+            }, 60000);
+
+        } else {
+            this.updateBotStats('api_error');
+            await this.sendMessage(sender, result.error || '❌ Gagal mendownload video');
+        }
+
+    } catch (error) {
+        console.error('Error processing TikTok download:', error);
+        this.updateBotStats('api_error'); 
+        this.updateBotStats('error');
+        await this.sendMessage(sender, '❌ Terjadi kesalahan saat mendownload');
+    }
+}
+
+// 5. UPDATE METHOD processStickerCreation (tambahkan tracking)
+async processStickerCreation(sender, message) {
+    try {
+        await this.sendMessage(sender, '⏳ Sedang membuat sticker...');
+
+        const mediaData = await this.downloadMedia(message);
+
+        if (!mediaData) {
+            this.updateBotStats('api_error');
+            await this.sendMessage(sender, '❌ Gagal mengunduh media');
+            return;
+        }
+
+        console.log(`📁 Media downloaded: ${mediaData.mimetype}, size: ${mediaData.buffer.length} bytes`);
+
+        const validation = await this.stickerMaker.validateMedia(mediaData.buffer, mediaData.mimetype);
+
+        if (!validation.isValid) {
+            const errorMessage = validation.errors.join('\n');
+            await this.sendMessage(sender, `❌ ${errorMessage}`);
+            return;
+        }
+
+        const result = await this.stickerMaker.createSticker(mediaData.buffer, mediaData.mimetype);
+
+        if (result.success) {
+            this.updateBotStats('api_success');
+            this.updateBotStats('sticker');
+            this.updateCommandStats('sticker');
+            
+            // TAMBAHKAN TRACKING DOWNLOAD
+            const fileStats = await fs.stat(result.filePath);
+            this.updateDownloadStats('sticker', 'sticker', fileStats.size);
+            
+            await this.sendSticker(sender, result.filePath);
+
+            setTimeout(async () => {
+                try {
+                    await fs.remove(result.filePath);
+                    console.log(`🗑️ File sticker ${result.fileName} telah dihapus`);
+                } catch (err) {
+                    console.error('Error deleting sticker file:', err);
+                }
+            }, 60000);
+
+            console.log(`✅ Sticker created successfully for ${sender}`);
+
+        } else {
+            this.updateBotStats('api_error');
+            await this.sendMessage(sender, result.error || '❌ Gagal membuat sticker');
+            console.error('Sticker creation failed:', result.error);
+        }
+
+    } catch (error) {
+        console.error('Error processing sticker creation:', error);
+        this.updateBotStats('api_error');
+        this.updateBotStats('error');
+        await this.sendMessage(sender, '❌ Terjadi kesalahan saat membuat sticker');
+    }
+}
+
+
     async handleBratsticker(sender, text) {
         if (!text) {
             await this.sendMessage(sender,
@@ -615,6 +719,8 @@ class WhatsAppClient {
             const result = await this.stickerMaker.createSticker(buffer, "image/jpeg")
 
             if (result.success) {
+                this.updateBotStats('api_success');
+                this.updateBotStats('sticker');
                 await this.sendSticker(sender, result.filePath);
 
                 // Cleanup file setelah 60 detik
@@ -635,6 +741,7 @@ class WhatsAppClient {
             }
         } catch (error) {
             console.error('Error processing bratsticker:', error);
+            this.updateBotStats('api_error');
             await this.sendMessage(sender, '❌ Terjadi kesalahan saat membuat sticker');
         }
     }
