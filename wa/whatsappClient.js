@@ -27,67 +27,57 @@ class WhatsAppClient {
         this.userLastMessage = new Map();
         this.userWelcomeCount = new Map();
         this.processingUsers = new Set();
-
         this.downloadStats = {
     totalFiles: 0,
     totalSize: 0, // dalam bytes
-    byType: {
-        video: { count: 0, size: 0 },
-        audio: { count: 0, size: 0 },
-        image: { count: 0, size: 0 },
-        sticker: { count: 0, size: 0 }
-    },
-    bySource: {
+    fileTypes: {
         tiktok: { count: 0, size: 0 },
         instagram: { count: 0, size: 0 },
         facebook: { count: 0, size: 0 },
-        youtube: { count: 0, size: 0 },
-        ytmp3: { count: 0, size: 0 },
-        ytmp4: { count: 0, size: 0 }
+        youtube_video: { count: 0, size: 0 },
+        youtube_audio: { count: 0, size: 0 },
+        sticker: { count: 0, size: 0 }
+    },
+    dailyDownloads: 0,
+    lastDailyReset: Date.now()
+};
+
+
+      this.fileSizeTracker = new Map();
+
+// =================== UPDATE CONSTRUCTOR botStats ===================
+// Ganti bagian botStats dengan ini:
+
+this.botStats = {
+    startTime: Date.now(),
+    totalMessages: 0,
+    commandsProcessed: 0,
+    apiSuccess: 0,
+    apiErrors: 0,
+    mediaProcessed: 0,
+    stickersCreated: 0,
+    videoDownloads: 0,
+    audioDownloads: 0,
+    aiQueries: 0,
+    errors: 0,
+    lastReset: Date.now(),
+    autoResetInterval: 2 * 24 * 60 * 60 * 1000, // 2 hari dalam milliseconds
+    commandStats: {
+        tiktok: 0,
+        instagram: 0,
+        facebook: 0,
+        youtube: 0,
+        sticker: 0,
+        ai: 0,
+        quote: 0,
+        pantun: 0,
+        motivasi: 0,
+        brat: 0,
+        help: 0,
+        info: 0,
+        ibot: 0
     }
 };
-
-// UPTIME PERSISTENT (tidak terpengaruh refresh)
-this.persistentUptime = {
-    startTime: Date.now(),
-    lastRefresh: Date.now(),
-    totalUptime: 0 // akumulasi uptime sebelumnya
-};
-
-// AUTO RESET STATS SETIAP 2 HARI
-this.setupAutoReset();
-
-
-        // =================== TAMBAHAN UNTUK STATS BOT ===================
-        this.botStats = {
-            startTime: Date.now(),
-            totalMessages: 0,
-            commandsProcessed: 0,
-            apiSuccess: 0,
-            apiErrors: 0,
-            mediaProcessed: 0,
-            stickersCreated: 0,
-            videoDownloads: 0,
-            audioDownloads: 0,
-            aiQueries: 0,
-            errors: 0,
-            lastReset: Date.now(),
-            commandStats: {
-                tiktok: 0,
-                instagram: 0,
-                facebook: 0,
-                youtube: 0,
-                sticker: 0,
-                ai: 0,
-                quote: 0,
-                pantun: 0,
-                motivasi: 0,
-                brat: 0,
-                help: 0,
-                info: 0,
-                ibot: 0
-            }
-        };
 
         this.setupCleanupInterval();
     }
@@ -96,65 +86,59 @@ this.setupAutoReset();
         return Math.floor(Math.random() * 1000) + 1000;
     }
 
-    setupAutoReset() {
-    // Reset setiap 2 hari (48 jam)
-    const resetInterval = 48 * 60 * 60 * 1000;
+    trackFileDownload(type, filePath) {
+    try {
+        const fs = require('fs-extra');
+        if (fs.existsSync(filePath)) {
+            const stats = fs.statSync(filePath);
+            const fileSize = stats.size;
+            
+            // Update download stats
+            this.downloadStats.totalFiles++;
+            this.downloadStats.totalSize += fileSize;
+            this.downloadStats.dailyDownloads++;
+            
+            if (this.downloadStats.fileTypes[type]) {
+                this.downloadStats.fileTypes[type].count++;
+                this.downloadStats.fileTypes[type].size += fileSize;
+            }
+            
+            console.log(`📊 File tracked: ${type}, Size: ${this.formatFileSize(fileSize)}`);
+        }
+    } catch (error) {
+        console.error('Error tracking file download:', error);
+    }
+}
+
+formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+    checkAutoReset() {
+    const now = Date.now();
+    const timeSinceReset = now - this.botStats.lastReset;
     
-    setInterval(() => {
-        console.log('🔄 Auto reset bot stats (2 hari)');
+    if (timeSinceReset >= this.botStats.autoResetInterval) {
         this.resetBotStats();
-    }, resetInterval);
+        console.log('🔄 Bot statistics auto-reset setelah 2 hari');
+    }
+    
+    // Reset daily downloads setiap hari
+    const timeSinceDailyReset = now - this.downloadStats.lastDailyReset;
+    if (timeSinceDailyReset >= 24 * 60 * 60 * 1000) {
+        this.downloadStats.dailyDownloads = 0;
+        this.downloadStats.lastDailyReset = now;
+        console.log('🔄 Daily downloads reset');
+    }
 }
 
     sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
-
-    updateDownloadStats(source, type, fileSize = 0) {
-    this.downloadStats.totalFiles++;
-    this.downloadStats.totalSize += fileSize;
-    
-    if (this.downloadStats.byType[type]) {
-        this.downloadStats.byType[type].count++;
-        this.downloadStats.byType[type].size += fileSize;
-    }
-    
-    if (this.downloadStats.bySource[source]) {
-        this.downloadStats.bySource[source].count++;
-        this.downloadStats.bySource[source].size += fileSize;
-    }
-}
-
-    formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-// Method untuk get persistent uptime
-getPersistentUptime() {
-    const currentTime = Date.now();
-    const sessionUptime = currentTime - this.persistentUptime.lastRefresh;
-    const totalUptime = this.persistentUptime.totalUptime + sessionUptime;
-    
-    const days = Math.floor(totalUptime / (24 * 60 * 60 * 1000));
-    const hours = Math.floor((totalUptime % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-    const minutes = Math.floor((totalUptime % (60 * 60 * 1000)) / (60 * 1000));
-    const seconds = Math.floor((totalUptime % (60 * 1000)) / 1000);
-    
-    return { days, hours, minutes, seconds, totalMs: totalUptime };
-}
-
-// Method untuk get top commands (6 teratas)
-getTopCommands(limit = 6) {
-    return Object.entries(this.botStats.commandStats)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, limit)
-        .filter(([, count]) => count > 0);
-}
-
 
     // ANTI-SPAM: Cek apakah pesan duplicate
     isDuplicateMessage(sender, messageKey, text) {
@@ -357,68 +341,77 @@ getTopCommands(limit = 6) {
 
     async handleIBotCommand(sender) {
     try {
-        const uptime = this.getPersistentUptime();
+        // Check auto reset sebelum menampilkan stats
+        this.checkAutoReset();
+        
+        const uptime = this.getUptime();
         const memoryUsage = process.memoryUsage();
         const activeUsers = this.processingUsers.size;
         const totalUsers = this.userStates.size;
 
-        // Format uptime
+        // Format uptime (tidak terpengaruh reset)
         const uptimeString = `${uptime.days}d ${uptime.hours}h ${uptime.minutes}m ${uptime.seconds}s`;
+
+        // Format memory usage
+        const formatBytes = (bytes) => {
+            return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+        };
 
         // Success rate
         const totalApi = this.botStats.apiSuccess + this.botStats.apiErrors;
         const successRate = totalApi > 0 ? ((this.botStats.apiSuccess / totalApi) * 100).toFixed(1) : '0.0';
 
-        // Top 6 commands
-        const topCommands = this.getTopCommands(6);
-        const commandsText = topCommands.length > 0 
-            ? topCommands.map(([cmd, count]) => `• ${cmd}: ${count}x`).join('\n')
+        // Most used commands (filter yang count > 0)
+        const sortedCommands = Object.entries(this.botStats.commandStats)
+            .filter(([cmd, count]) => count > 0)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 8);
+
+        const commandsText = sortedCommands.length > 0 
+            ? sortedCommands.map(([cmd, count]) => `• ${cmd}: ${count}x`).join('\n')
             : '• Belum ada command yang digunakan';
 
         // Download statistics
-        const downloadText = `• Total Files: ${this.downloadStats.totalFiles}\n` +
-            `• Total Size: ${this.formatBytes(this.downloadStats.totalSize)}\n` +
-            `• Video: ${this.downloadStats.byType.video.count} (${this.formatBytes(this.downloadStats.byType.video.size)})\n` +
-            `• Audio: ${this.downloadStats.byType.audio.count} (${this.formatBytes(this.downloadStats.byType.audio.size)})\n` +
-            `• Sticker: ${this.downloadStats.byType.sticker.count} (${this.formatBytes(this.downloadStats.byType.sticker.size)})`;
+        const downloadText = Object.entries(this.downloadStats.fileTypes)
+            .filter(([type, data]) => data.count > 0)
+            .map(([type, data]) => `• ${type}: ${data.count} files (${this.formatFileSize(data.size)})`)
+            .join('\n') || '• Belum ada file yang didownload';
 
-        // Source statistics
-        const sourceText = `• TikTok: ${this.downloadStats.bySource.tiktok.count}\n` +
-            `• Instagram: ${this.downloadStats.bySource.instagram.count}\n` +
-            `• Facebook: ${this.downloadStats.bySource.facebook.count}\n` +
-            `• YouTube MP4: ${this.downloadStats.bySource.ytmp4.count}\n` +
-            `• YouTube MP3: ${this.downloadStats.bySource.ytmp3.count}`;
-
-        // Days until next reset
+        // Time since last reset
         const timeSinceReset = Date.now() - this.botStats.lastReset;
-        const resetInterval = 48 * 60 * 60 * 1000; // 2 hari
-        const timeUntilReset = resetInterval - timeSinceReset;
-        const hoursUntilReset = Math.floor(timeUntilReset / (60 * 60 * 1000));
+        const hoursSinceReset = Math.floor(timeSinceReset / (60 * 60 * 1000));
+        const resetCountdown = Math.ceil((this.botStats.autoResetInterval - timeSinceReset) / (60 * 60 * 1000));
 
-        const statsMessage = `🤖 *IGIMONSAN BOT - DASHBOARD REALTIME*\n\n` +
+        const statsMessage = `🤖 *IGIMONSAN BOT - REAL-TIME STATUS*\n\n` +
             `⏱️ *System Uptime:* ${uptimeString}\n` +
-            `🔄 *Auto Reset:* ${hoursUntilReset}h lagi\n\n` +
-            `📊 *Statistik Pesan:*\n` +
-            `• Total Pesan: ${this.botStats.totalMessages}\n` +
-            `• Command Diproses: ${this.botStats.commandsProcessed}\n` +
-            `• Media Diproses: ${this.botStats.mediaProcessed}\n\n` +
-            `📈 *Statistik API:*\n` +
-            `• API Berhasil: ${this.botStats.apiSuccess}\n` +
-            `• API Gagal: ${this.botStats.apiErrors}\n` +
+            `📊 *Statistics Period:* ${hoursSinceReset}h (Reset in ${resetCountdown}h)\n\n` +
+            `📈 *Message Statistics:*\n` +
+            `• Total Messages: ${this.botStats.totalMessages}\n` +
+            `• Commands Processed: ${this.botStats.commandsProcessed}\n` +
+            `• Media Processed: ${this.botStats.mediaProcessed}\n\n` +
+            `🌐 *API Performance:*\n` +
+            `• Success: ${this.botStats.apiSuccess}\n` +
+            `• Failed: ${this.botStats.apiErrors}\n` +
             `• Success Rate: ${successRate}%\n\n` +
-            `📁 *Download Statistics:*\n${downloadText}\n\n` +
-            `🌐 *Download by Source:*\n${sourceText}\n\n` +
-            `🎯 *Aktivitas Khusus:*\n` +
-            `• AI Queries: ${this.botStats.aiQueries}\n` +
-            `• Errors: ${this.botStats.errors}\n\n` +
-            `👥 *Pengguna:*\n` +
+            `📥 *Download Statistics:*\n` +
+            `• Total Files: ${this.downloadStats.totalFiles}\n` +
+            `• Total Size: ${this.formatFileSize(this.downloadStats.totalSize)}\n` +
+            `• Today: ${this.downloadStats.dailyDownloads} files\n\n` +
+            `📂 *File Types Downloaded:*\n${downloadText}\n\n` +
+            `🎯 *Activity Breakdown:*\n` +
+            `• Stickers Created: ${this.botStats.stickersCreated}\n` +
+            `• Video Downloads: ${this.botStats.videoDownloads}\n` +
+            `• Audio Downloads: ${this.botStats.audioDownloads}\n` +
+            `• AI Queries: ${this.botStats.aiQueries}\n\n` +
+            `👥 *User Activity:*\n` +
             `• Total Users: ${totalUsers}\n` +
-            `• Sedang Aktif: ${activeUsers}\n\n` +
+            `• Currently Active: ${activeUsers}\n\n` +
+            `📋 *Command Usage:*\n${commandsText}\n\n` +
             `🔧 *System Resources:*\n` +
-            `• Memory Used: ${this.formatBytes(memoryUsage.heapUsed)}\n` +
-            `• Memory Total: ${this.formatBytes(memoryUsage.heapTotal)}\n\n` +
-            `🏆 *Top Commands (6 Teratas):*\n${commandsText}\n\n` +
-            `🕐 *Last Reset:* ${new Date(this.botStats.lastReset).toLocaleString('id-ID')}\n` +
+            `• Memory Used: ${formatBytes(memoryUsage.heapUsed)}\n` +
+            `• Memory Total: ${formatBytes(memoryUsage.heapTotal)}\n` +
+            `• Errors: ${this.botStats.errors}\n\n` +
+            `🕐 *Last Stats Reset:* ${new Date(this.botStats.lastReset).toLocaleString('id-ID')}\n` +
             `💾 *Bot Version:* 2.1.0\n` +
             `🔄 *Status:* Online & Healthy`;
 
@@ -662,9 +655,7 @@ getTopCommands(limit = 6) {
                         console.error('Error deleting sticker file:', err);
                     }
                 }, 60000);
-
-                const fileSize = result.fileSize || 0;
-                this.updateDownloadStats('sticker', 'sticker', fileSize);
+                
                 console.log(`✅ Sticker created successfully for ${sender}`);
 
             } else {
@@ -1006,14 +997,15 @@ getTopCommands(limit = 6) {
             const result = await downloader.processDownload(url, 'Video TikTok');
 
             if (result.success) {
-    this.updateBotStats('api_success');
+                this.updateBotStats('api_success');
     this.updateBotStats('video');
+    this.updateCommandStats('tiktok');
     
-    // TAMBAHKAN INI - Update download stats
-    const fileSize = result.fileSize || 0;
-    this.updateDownloadStats('tiktok', 'video', fileSize);
+    // TAMBAHKAN INI - Track file download
+    this.trackFileDownload('tiktok', result.filePath);
     
-    await this.sendVideo(sender, result.filePath, result.title, result.author);
+                
+                await this.sendVideo(sender, result.filePath, result.title, result.author);
 
                 setTimeout(async () => {
                     try {
@@ -1063,8 +1055,7 @@ getTopCommands(limit = 6) {
             if (result.success) {
                 this.updateBotStats('api_success'); // TAMBAHKAN INI
                 this.updateBotStats('sticker');
-                const fileSize = result.fileSize || 0;
-                this.updateDownloadStats('sticker', 'sticker', fileSize);
+                this.trackFileDownload('sticker', result.filePath);
                 // Cleanup file setelah 60 detik
                 setTimeout(async () => {
                     try {
@@ -1118,6 +1109,8 @@ getTopCommands(limit = 6) {
             return;
         }
 
+        this.trackFileDownload('instagram', result.filePath);
+
         // Handle berbagai tipe konten Instagram
         if (responseData.type === 'video') {
             await this.handleInstagramVideo(sender, responseData);
@@ -1170,7 +1163,6 @@ getTopCommands(limit = 6) {
             mimetype: 'video/mp4'
         });
 
-        this.updateDownloadStats('instagram', 'video', 0);
         console.log(`✅ Instagram video sent successfully to ${sender}`);
 
     } catch (error) {
@@ -1195,7 +1187,8 @@ getTopCommands(limit = 6) {
                 await this.sendMessage(sender, '❌ Gagal mendownload video Facebook');
                 return;
             }
-            this.updateDownloadStats('facebook', 'video', 0);
+
+            this.trackFileDownload('facebook', result.filePath);
 
             const videoUrl = data.data.hd;
             await this.sock.sendMessage(sender, {
@@ -1228,6 +1221,7 @@ getTopCommands(limit = 6) {
                 return;
             }
 
+            this.trackFileDownload('youtube_video', result.filePath);
             const videoUrl = data.data?.dlink || data.data?.video || data.data?.url || data.data?.download_url;
 
             if (!videoUrl) {
@@ -1241,7 +1235,6 @@ getTopCommands(limit = 6) {
                 mimetype: 'video/mp4'
             });
 
-            this.updateDownloadStats('ytmp4', 'video', 0);
             await this.sendMessage(sender, '✅ Video YouTube berhasil didownload!');
 
         } catch (error) {
@@ -1266,6 +1259,7 @@ getTopCommands(limit = 6) {
                 return;
             }
 
+            this.trackFileDownload('youtube_audio', result.filePath);
             const audioUrl = data.data?.dlink || data.data?.audio || data.data?.url || data.data?.download_url;
 
             if (!audioUrl) {
@@ -1282,7 +1276,6 @@ getTopCommands(limit = 6) {
                 ptt: false
             });
 
-            this.updateDownloadStats('ytmp3', 'audio', 0);
             await this.sendMessage(sender, '✅ Audio YouTube berhasil didownload!');
 
         } catch (error) {
@@ -1329,12 +1322,13 @@ getTopCommands(limit = 6) {
     // =================== UTILITY METHODS ===================
 
     setupCleanupInterval() {
-        setInterval(() => {
-            this.cleanupInactiveUsers();
-            this.aiHandler.cleanupInactiveSessions();
-            this.stickerMaker.cleanup();
-        }, 30 * 60 * 1000);
-    }
+    setInterval(() => {
+        this.cleanupInactiveUsers();
+        this.aiHandler.cleanupInactiveSessions();
+        this.stickerMaker.cleanup();
+        this.checkAutoReset(); // Tambahkan pengecekan auto reset
+    }, 30 * 60 * 1000); // Setiap 30 menit
+}
 
     cleanupInactiveUsers() {
         const now = Date.now();
@@ -1442,15 +1436,10 @@ getTopCommands(limit = 6) {
     }
 
     resetBotStats() {
-    // Update persistent uptime saat reset
-    const currentTime = Date.now();
-    const sessionUptime = currentTime - this.persistentUptime.lastRefresh;
-    this.persistentUptime.totalUptime += sessionUptime;
-    this.persistentUptime.lastRefresh = currentTime;
+    const currentStartTime = this.botStats.startTime; // Simpan uptime asli
     
-    // Reset bot stats
     this.botStats = {
-        startTime: Date.now(),
+        startTime: currentStartTime, // Uptime tidak terpengaruh
         totalMessages: 0,
         commandsProcessed: 0,
         apiSuccess: 0,
@@ -1462,6 +1451,7 @@ getTopCommands(limit = 6) {
         aiQueries: 0,
         errors: 0,
         lastReset: Date.now(),
+        autoResetInterval: 2 * 24 * 60 * 60 * 1000,
         commandStats: {
             tiktok: 0,
             instagram: 0,
@@ -1479,27 +1469,23 @@ getTopCommands(limit = 6) {
         }
     };
     
-    // Reset download stats
+    // Reset download stats juga
     this.downloadStats = {
         totalFiles: 0,
         totalSize: 0,
-        byType: {
-            video: { count: 0, size: 0 },
-            audio: { count: 0, size: 0 },
-            image: { count: 0, size: 0 },
-            sticker: { count: 0, size: 0 }
-        },
-        bySource: {
+        fileTypes: {
             tiktok: { count: 0, size: 0 },
             instagram: { count: 0, size: 0 },
             facebook: { count: 0, size: 0 },
-            youtube: { count: 0, size: 0 },
-            ytmp3: { count: 0, size: 0 },
-            ytmp4: { count: 0, size: 0 }
-        }
+            youtube_video: { count: 0, size: 0 },
+            youtube_audio: { count: 0, size: 0 },
+            sticker: { count: 0, size: 0 }
+        },
+        dailyDownloads: 0,
+        lastDailyReset: Date.now()
     };
     
-    console.log('🔄 Bot stats telah direset');
+    console.log('🔄 Bot statistics reset completed (uptime preserved)');
 }
 }
 
