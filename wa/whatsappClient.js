@@ -482,6 +482,7 @@ class WhatsAppClient {
             `ℹ️ *Info:*\n` +
             `• !help - Tampilkan pesan ini\n` +
             `• !info - Info bot\n` +
+            `• !ibot - Info bot realtime\n\n` + // TAMBAHKAN INI
             `📝 *Cara Penggunaan:*\n` +
             `Contoh: !tiktok https://vt.tiktok.com/...\n` +
             `Contoh: !ai Siapa jokowi`;
