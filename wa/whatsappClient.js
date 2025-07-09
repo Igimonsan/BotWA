@@ -950,6 +950,7 @@ getUptime() {
     try {
         await this.sendMessage(sender, '⏳ Sedang memproses download Instagram...');
         
+        
         const { data } = await axios.get(`${config.ferdev.apiUrl}/downloader/instagram`, {
             params: {
                 link: url,
@@ -974,6 +975,8 @@ getUptime() {
 
         // Handle berbagai tipe konten Instagram
         if (responseData.type === 'video') {
+            this.updateBotStats('download_success');
+            this.updateBotStats('video_downloaded');
             await this.handleInstagramVideo(sender, responseData);
         } else if (responseData.type === 'image') {
             await this.handleInstagramImage(sender, responseData);
@@ -1057,6 +1060,8 @@ getUptime() {
             });
 
             await this.sendMessage(sender, '✅ Video Facebook berhasil didownload!');
+            this.updateBotStats('download_success');
+            this.updateBotStats('video_downloaded');
 
         } catch (error) {
             console.error('Error processing Facebook download:', error);
@@ -1067,6 +1072,8 @@ getUptime() {
     async processYTMP4Download(sender, url) {
         try {
             await this.sendMessage(sender, '⏳ Sedang memproses download...');
+            this.updateBotStats('download_success');
+            this.updateBotStats('video_downloaded');
 
             const { data } = await axios.get(`${config.ferdev.apiUrl}/downloader/ytmp4`, {
                 params: {
@@ -1104,6 +1111,8 @@ getUptime() {
     async processYTMP3Download(sender, url) {
         try {
             await this.sendMessage(sender, '⏳ Sedang memproses download...');
+            this.updateBotStats('download_success');
+            this.updateBotStats('video_downloaded');
 
             const { data } = await axios.get(`${config.ferdev.apiUrl}/downloader/ytmp3`, {
                 params: {
@@ -1147,6 +1156,8 @@ getUptime() {
                 message.message?.videoMessage ||
                 message.message?.stickerMessage ||
                 message.message?.documentMessage;
+                this.updateBotStats('download_success');
+            this.updateBotStats('video_downloaded');
 
             if (!mediaMessage) {
                 console.log('❌ No media message found');
