@@ -408,7 +408,6 @@ class WhatsAppClient {
 
             // =================== TAMBAHKAN COMMAND !ibot ===================
             if (lowerText === '!ibot') {
-                this.updateCommandStats('ibot');
                 await this.handleIBotCommand(sender);
                 return;
             }
