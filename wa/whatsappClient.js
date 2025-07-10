@@ -1489,7 +1489,7 @@ async processStickerCreation(sender, message) {
             this.cleanupInactiveUsers();
             this.aiHandler.cleanupInactiveSessions();
             this.stickerMaker.cleanup();
-        }, 30 * 60 * 1000);
+        }, 24 * 60 * 60 * 1000);
     }
 
     cleanupInactiveUsers() {
