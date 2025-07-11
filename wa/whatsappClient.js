@@ -1486,11 +1486,11 @@ async processStickerCreation(sender, message) {
     // =================== UTILITY METHODS ===================
 
     setupCleanupInterval() {
-        setInterval(() => {
-            this.cleanupInactiveUsers();
-            this.aiHandler.cleanupInactiveSessions();
-            this.stickerMaker.cleanup();
-        }, 24 * 60 * 60 * 1000);
+    setInterval(() => {
+        this.cleanupInactiveUsers();
+        this.aiHandler.cleanupInactiveSessions();
+        this.stickerMaker.cleanup();
+    }, 4 * 24 * 60 * 60 * 1000); // 4 hari
     }
 
     cleanupInactiveUsers() {
